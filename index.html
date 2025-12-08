@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -45,6 +46,20 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #475569; 
+      }
+
+      /* Topology Traffic Animation */
+      @keyframes traffic-flow {
+        from {
+          stroke-dashoffset: 20;
+        }
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      .traffic-link {
+        animation: traffic-flow 0.5s linear infinite;
+        stroke-linecap: round;
       }
     </style>
   <script type="importmap">
