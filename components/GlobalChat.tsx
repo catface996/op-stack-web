@@ -1,15 +1,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  MessageSquare, 
-  Send, 
-  X, 
-  Paperclip, 
-  Database, 
-  Network, 
-  Bot, 
-  User, 
-  ChevronDown, 
+import {
+  MessageSquare,
+  Send,
+  X,
+  AtSign,
+  Database,
+  Network,
+  Bot,
+  User,
+  ChevronDown,
   Search,
   Trash2,
   Sparkles,
@@ -267,13 +267,13 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ nodes, groups, teams, isStandal
                         ))}
                       </div>
                     )}
-                    <div className="relative flex items-stretch gap-4">
-                      <div className="relative flex-1">
+                    <div className="relative flex items-center gap-4">
+                      <div className="relative flex-1 flex items-center h-14 bg-slate-950 border border-slate-800 rounded-2xl focus-within:border-cyan-500 focus-within:ring-1 focus-within:ring-cyan-500 transition-all shadow-2xl">
                         <button
                           onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
-                          className={`absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors ${isAttachmentMenuOpen ? 'text-cyan-400 bg-cyan-900/30' : 'text-slate-500 hover:text-slate-300'}`}
+                          className={`flex-shrink-0 p-2 ml-2 rounded-lg transition-colors ${isAttachmentMenuOpen ? 'text-cyan-400 bg-cyan-900/30' : 'text-slate-500 hover:text-slate-300'}`}
                         >
-                          <Paperclip size={24} />
+                          <AtSign size={24} />
                         </button>
                         <textarea
                           ref={textareaRef}
@@ -283,7 +283,7 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ nodes, groups, teams, isStandal
                           onFocus={handleInputInteraction}
                           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
                           placeholder="Type your technical inquiry here... (Enter to send, Shift+Enter for new line)"
-                          className="w-full h-14 bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-16 pr-6 text-base text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all resize-none shadow-2xl"
+                          className="flex-1 h-full bg-transparent py-4 pr-6 text-base text-slate-200 focus:outline-none resize-none"
                         />
                         {/* Standalone Attachment Menu */}
                         {isAttachmentMenuOpen && (
@@ -439,17 +439,15 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ nodes, groups, teams, isStandal
               </div>
             )}
 
-            <div className="flex items-start gap-2">
-              <div className="relative flex-1">
-                <div className="absolute left-3 top-0 bottom-0 flex items-center z-10">
-                  <button
-                    onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
-                    className={`p-1 rounded-md transition-colors ${isAttachmentMenuOpen ? 'text-cyan-400 bg-cyan-900/30' : 'text-slate-500 hover:text-slate-300'}`}
-                    title="Attach Context"
-                  >
-                    <Paperclip size={18} />
-                  </button>
-                </div>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 flex items-center bg-slate-950 border border-slate-800 rounded-xl focus-within:border-cyan-500 focus-within:ring-1 focus-within:ring-cyan-500 transition-all">
+                <button
+                  onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
+                  className={`flex-shrink-0 p-2 ml-1 rounded-md transition-colors ${isAttachmentMenuOpen ? 'text-cyan-400 bg-cyan-900/30' : 'text-slate-500 hover:text-slate-300'}`}
+                  title="Attach Context"
+                >
+                  <AtSign size={18} />
+                </button>
 
                 <textarea
                   ref={textareaRef}
@@ -459,7 +457,7 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ nodes, groups, teams, isStandal
                   onFocus={handleInputInteraction}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
                   placeholder="Ask a technical question..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all resize-none max-h-32"
+                  className="flex-1 bg-transparent py-2.5 pr-4 text-sm text-slate-200 focus:outline-none resize-none max-h-32"
                 />
 
                 {isAttachmentMenuOpen && (
