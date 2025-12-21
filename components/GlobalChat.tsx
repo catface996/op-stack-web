@@ -441,9 +441,9 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ nodes, groups, teams, isStandal
 
             <div className="relative flex items-end gap-2">
               <div className="relative flex-1">
-                <button 
+                <button
                   onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
-                  className={`absolute left-3 bottom-2.5 p-1 rounded-md transition-colors ${isAttachmentMenuOpen ? 'text-cyan-400 bg-cyan-900/30' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors ${isAttachmentMenuOpen ? 'text-cyan-400 bg-cyan-900/30' : 'text-slate-500 hover:text-slate-300'}`}
                   title="Attach Context"
                 >
                   <Paperclip size={18} />
