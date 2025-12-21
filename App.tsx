@@ -61,7 +61,7 @@ import ScannerView from './components/ScannerView';
 import AuthPage, { UserInfo } from './components/AuthPage';
 import { SettingsModal, AppSettings } from './components/SettingsModal';
 import GlobalChat from './components/GlobalChat';
-import { Activity, Database, Network, FileText, LogOut, Settings, Play, Square, Home, Radar, Users, Sparkles, X, FileSearch, Check, Wand2 } from 'lucide-react';
+import { Activity, Brain, Database, Network, FileText, LogOut, Settings, Play, Square, Home, Radar, Users, Sparkles, X, FileSearch, Check, Wand2 } from 'lucide-react';
 
 // 本地存储的键名
 const AUTH_STORAGE_KEY = 'entropyops_auth';
@@ -811,7 +811,7 @@ const App: React.FC = () => {
       <header className="h-14 border-b border-slate-800 bg-slate-900 px-4 flex items-center justify-between shrink-0 z-50">
         <div className="flex items-center gap-8">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
-                <Activity className="text-cyan-400" size={20} />
+                <Brain className="text-cyan-400" size={20} />
                 <span className="font-bold tracking-tight uppercase tracking-widest"><span className="text-white">Entropy</span><span className="text-cyan-400">OPStack</span></span>
             </div>
             <nav className="flex items-center gap-1">

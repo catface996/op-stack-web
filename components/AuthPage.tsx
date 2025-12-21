@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { 
-  Activity, 
-  Mail, 
-  Lock, 
-  User, 
-  ArrowRight, 
-  Github, 
+import {
+  Brain,
+  Mail,
+  Lock,
+  User,
+  ArrowRight,
+  Github,
   Chrome,
   AlertCircle
 } from 'lucide-react';
@@ -88,7 +88,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
           <div className="p-8 pb-6 text-center border-b border-slate-800/50">
             <div className="flex justify-center mb-4">
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 shadow-inner">
-                 <Activity size={32} className="text-cyan-400" />
+                 <Brain size={32} className="text-cyan-400" />
               </div>
             </div>
             <h1 className="text-2xl font-bold tracking-tight mb-1"><span className="text-white">Entropy</span><span className="text-cyan-400">OPStack</span></h1>
