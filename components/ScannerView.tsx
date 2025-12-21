@@ -105,7 +105,7 @@ const ScannerView: React.FC<ScannerViewProps> = ({
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all"
+            className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-all"
           >
             <ArrowLeft size={20} />
           </button>
