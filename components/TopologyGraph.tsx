@@ -60,10 +60,57 @@ interface TopologyGraphProps {
   showLegend?: boolean;
 }
 
+// Layout cache interface
+interface LayoutCache {
+  nodePositions: Record<string, { x: number; y: number }>;
+  layerHeights: Record<string, number>;
+  timestamp: number;
+}
+
+// Generate cache key based on topology node IDs
+const getLayoutCacheKey = (nodes: { id: string }[]) => {
+  const sortedIds = nodes.map(n => n.id).sort().join(',');
+  return `topology-layout-${btoa(sortedIds).slice(0, 32)}`;
+};
+
+// Save layout to localStorage
+const saveLayoutCache = (cacheKey: string, nodePositions: Map<string, { x: number; y: number }>, layerHeights: Map<string, number>) => {
+  try {
+    const cache: LayoutCache = {
+      nodePositions: Object.fromEntries(nodePositions),
+      layerHeights: Object.fromEntries(layerHeights),
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(cacheKey, JSON.stringify(cache));
+  } catch (e) {
+    console.warn('Failed to save layout cache:', e);
+  }
+};
+
+// Load layout from localStorage
+const loadLayoutCache = (cacheKey: string): LayoutCache | null => {
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const cache = JSON.parse(cached) as LayoutCache;
+      // Cache expires after 7 days
+      if (Date.now() - cache.timestamp < 7 * 24 * 60 * 60 * 1000) {
+        return cache;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load layout cache:', e);
+  }
+  return null;
+};
+
 const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNodeClick, onNodeDoubleClick, onCreateLink, showLegend = true }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeSelectionRef = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
+
+  // Cache key for current topology
+  const layoutCacheKey = useRef<string>('');
 
   // 链接状态管理
   const [linkingState, setLinkingState] = useState<LinkingState | null>(null);
@@ -476,11 +523,31 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
     // Recalculate layer positions after height adjustments
     recalculateLayerPositions();
 
-    // Now position nodes within layers
+    // Now position nodes within layers using Barycenter method (Sugiyama algorithm)
+    // This minimizes edge crossings by ordering nodes based on connected neighbors
     activeLayers.forEach(layer => {
       const nodesInLayer = layerNodeMap.get(layer) || [];
       const layerPos = layerYPositions.get(layer);
       if (!layerPos || nodesInLayer.length === 0) return;
+
+      const nodeIds = new Set(nodesInLayer.map((n: any) => n.data.id));
+
+      // Build adjacency relationships for intra-layer call links
+      const parentMap = new Map<string, string[]>(); // child -> parents (callers)
+      const childMap = new Map<string, string[]>();  // parent -> children (callees)
+      nodeIds.forEach(id => {
+        parentMap.set(id, []);
+        childMap.set(id, []);
+      });
+
+      data.links.forEach(l => {
+        const sourceId = typeof l.source === 'object' ? (l.source as any).id : l.source;
+        const targetId = typeof l.target === 'object' ? (l.target as any).id : l.target;
+        if ((l.type === 'call' || !l.type) && nodeIds.has(sourceId) && nodeIds.has(targetId)) {
+          parentMap.get(targetId)?.push(sourceId);
+          childMap.get(sourceId)?.push(targetId);
+        }
+      });
 
       // Calculate depth for each node within this layer
       const depthMap = calculateIntraLayerDepth(nodesInLayer, data.links);
@@ -500,26 +567,89 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
       const numRows = depthLevels.length;
 
       // Calculate vertical spacing within the layer
-      // Use consistent padding from layer edges
       const layerH = layerHeights.get(layer) || baseLayerHeight;
-      const topPadding = layerEdgePadding + nodeHeight / 2; // From layer top to first node center
-      const bottomPadding = layerEdgePadding + nodeHeight / 2; // From last node center to layer bottom
+      const topPadding = layerEdgePadding + nodeHeight / 2;
+      const bottomPadding = layerEdgePadding + nodeHeight / 2;
       const availableHeight = layerH - topPadding - bottomPadding;
       const rowSpacing = numRows > 1 ? availableHeight / (numRows - 1) : 0;
       const startY = numRows > 1 ? layerPos.top + topPadding : layerPos.center;
 
-      // Position nodes at each depth level
+      const nodeSpacing = 180;
+
+      // Store node order index within each depth level
+      const nodeOrderIndex = new Map<string, number>();
+
+      // Initialize first depth level order
+      const firstDepthNodes = nodesByDepth.get(depthLevels[0]) || [];
+      firstDepthNodes.forEach((node: any, idx: number) => {
+        nodeOrderIndex.set(node.data.id, idx);
+      });
+
+      // Barycenter method: multiple passes to minimize crossings
+      const numPasses = 4; // More passes = better results
+
+      for (let pass = 0; pass < numPasses; pass++) {
+        // Forward pass: order based on parents (top-down)
+        for (let i = 1; i < depthLevels.length; i++) {
+          const nodesAtDepth = nodesByDepth.get(depthLevels[i]) || [];
+
+          nodesAtDepth.forEach((node: any) => {
+            const parents = parentMap.get(node.data.id) || [];
+            if (parents.length > 0) {
+              // Calculate barycenter (average order of parents)
+              const barycenter = parents.reduce((sum, pid) => {
+                return sum + (nodeOrderIndex.get(pid) ?? 0);
+              }, 0) / parents.length;
+              node.barycenter = barycenter;
+            } else {
+              node.barycenter = nodeOrderIndex.get(node.data.id) ?? 0;
+            }
+          });
+
+          // Sort by barycenter
+          nodesAtDepth.sort((a: any, b: any) => a.barycenter - b.barycenter);
+
+          // Update order indices
+          nodesAtDepth.forEach((node: any, idx: number) => {
+            nodeOrderIndex.set(node.data.id, idx);
+          });
+        }
+
+        // Backward pass: order based on children (bottom-up)
+        for (let i = depthLevels.length - 2; i >= 0; i--) {
+          const nodesAtDepth = nodesByDepth.get(depthLevels[i]) || [];
+
+          nodesAtDepth.forEach((node: any) => {
+            const children = childMap.get(node.data.id) || [];
+            if (children.length > 0) {
+              // Calculate barycenter (average order of children)
+              const barycenter = children.reduce((sum, cid) => {
+                return sum + (nodeOrderIndex.get(cid) ?? 0);
+              }, 0) / children.length;
+              node.barycenter = barycenter;
+            } else {
+              node.barycenter = nodeOrderIndex.get(node.data.id) ?? 0;
+            }
+          });
+
+          // Sort by barycenter
+          nodesAtDepth.sort((a: any, b: any) => a.barycenter - b.barycenter);
+
+          // Update order indices
+          nodesAtDepth.forEach((node: any, idx: number) => {
+            nodeOrderIndex.set(node.data.id, idx);
+          });
+        }
+      }
+
+      // Now assign actual X positions based on final order
       depthLevels.forEach((depth, rowIndex) => {
         const nodesAtDepth = nodesByDepth.get(depth) || [];
+        const rowY = numRows > 1 ? startY + rowIndex * rowSpacing : startY;
 
-        // Sort nodes by original x position
-        nodesAtDepth.sort((a: any, b: any) => a.x - b.x);
-
-        const nodeSpacing = 180;
+        // Nodes are already sorted by barycenter from the passes above
         const totalWidth = (nodesAtDepth.length - 1) * nodeSpacing;
         const startX = -totalWidth / 2;
-
-        const rowY = numRows > 1 ? startY + rowIndex * rowSpacing : startY;
 
         nodesAtDepth.forEach((node: any, idx: number) => {
           node.x = startX + idx * nodeSpacing;
@@ -527,6 +657,44 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
         });
       });
     });
+
+    // Load and apply cached layout if available
+    layoutCacheKey.current = getLayoutCacheKey(data.nodes);
+    const cachedLayout = loadLayoutCache(layoutCacheKey.current);
+
+    if (cachedLayout) {
+      // Apply cached layer heights
+      let hasLayerHeightChanges = false;
+      Object.entries(cachedLayout.layerHeights).forEach(([layer, height]) => {
+        if (layerHeights.has(layer as TopologyLayer)) {
+          layerHeights.set(layer as TopologyLayer, height);
+          hasLayerHeightChanges = true;
+        }
+      });
+
+      // Recalculate layer positions if heights changed
+      if (hasLayerHeightChanges) {
+        recalculateLayerPositions();
+      }
+
+      // Apply cached node positions
+      treeNodes.forEach((d: any) => {
+        const cachedPos = cachedLayout.nodePositions[d.data.id];
+        if (cachedPos) {
+          d.x = cachedPos.x;
+          d.y = cachedPos.y;
+        }
+      });
+    }
+
+    // Helper function to save current layout to cache
+    const saveCurrentLayout = () => {
+      const nodePositions = new Map<string, { x: number; y: number }>();
+      treeNodes.forEach((d: any) => {
+        nodePositions.set(d.data.id, { x: d.x, y: d.y });
+      });
+      saveLayoutCache(layoutCacheKey.current, nodePositions, layerHeights);
+    };
 
     // 计算实际边界
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -767,6 +935,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
               d3.select(this.previousSibling as Element)
                 .attr("stroke", "rgba(100, 116, 139, 0.5)")
                 .attr("stroke-width", 2);
+              saveCurrentLayout(); // Save layout after drag
             })
           );
       }
@@ -846,6 +1015,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
               d3.select(this.previousSibling as Element)
                 .attr("stroke", "rgba(100, 116, 139, 0.5)")
                 .attr("stroke-width", 2);
+              saveCurrentLayout(); // Save layout after drag
             })
           );
       }
@@ -925,6 +1095,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
             d3.select(this.previousSibling as Element)
               .attr("stroke", "rgba(100, 116, 139, 0.5)")
               .attr("stroke-width", 2);
+            saveCurrentLayout(); // Save layout after drag
           })
         );
     }
@@ -1121,6 +1292,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
       })
       .on("end", function(event, d) {
         d3.select(this).classed("dragging", false);
+        saveCurrentLayout(); // Save layout after drag
       });
 
     // 绘制节点
@@ -1284,7 +1456,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
     <div ref={containerRef} className="w-full h-full bg-slate-900 overflow-hidden relative" onClick={handleBackgroundClick}>
       {/* 图例 */}
       {showLegend && (
-        <div className="absolute top-2 left-2 z-10 pointer-events-none p-3 bg-slate-950/40 backdrop-blur rounded-lg border border-slate-800">
+        <div className="absolute top-2 right-2 z-10 pointer-events-none p-3 bg-slate-950/40 backdrop-blur rounded-lg border border-slate-800">
           <div className="flex flex-col gap-2 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
             <div className="flex items-center gap-2"><div className="w-2 h-2 rounded bg-blue-500"></div> System Node</div>
             <div className="flex items-center gap-2"><div className="w-2 h-2 rounded border border-purple-500 border-dashed"></div> Ghost Node (AI Discovered)</div>
@@ -1299,7 +1471,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
 
       {/* 链接模式指示器 */}
       {linkingState && (
-        <div className="absolute top-2 right-2 z-20 px-4 py-2 bg-cyan-500/20 border border-cyan-500/50 rounded-lg backdrop-blur">
+        <div className="absolute top-2 left-2 z-20 px-4 py-2 bg-cyan-500/20 border border-cyan-500/50 rounded-lg backdrop-blur">
           <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold">
             <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
             <span>链接模式: 从 "{getNodeName(linkingState.sourceNodeId)}" 开始</span>
@@ -1315,7 +1487,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
 
       {/* 链接创建成功提示 */}
       {linkCreatedMessage && (
-        <div className="absolute top-2 right-2 z-20 px-4 py-2 bg-green-500/20 border border-green-500/50 rounded-lg backdrop-blur animate-pulse">
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 px-4 py-2 bg-green-500/20 border border-green-500/50 rounded-lg backdrop-blur animate-pulse">
           <div className="flex items-center gap-2 text-green-400 text-xs font-bold">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
