@@ -1,10 +1,12 @@
-# EntropyOps - AI-Powered Unified Operations Platform
+# EntropyOps
 
 <div align="center">
 
-**运筹 · 运营 · 运维 一体化智能平台**
+## AI-Driven Operations Stack
 
-**Operations Research · Business Operations · IT Operations**
+### From Decision Optimization to Business Operations and AIOps
+
+**运筹 · 运营 · 运维 — 智能一体化**
 
 [![React](https://img.shields.io/badge/React-18.2.0-61DAFB?logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
@@ -18,7 +20,17 @@
 
 ## Overview
 
-EntropyOps is a next-generation **AI-powered unified operations platform** that integrates **Operations Research (运筹)**, **Business Operations (运营)**, and **IT Operations (运维)** into a single intelligent system. By leveraging a **hierarchical multi-agent collaboration system**, EntropyOps bridges the gap between business strategy, operational execution, and technical infrastructure.
+EntropyOps is a next-generation **AI-Driven Operations Stack** that unifies three critical operational domains into a single intelligent platform:
+
+| Layer | Domain | Focus |
+|-------|--------|-------|
+| **Decision Optimization** | 运筹 (Operations Research) | Resource allocation, scheduling, capacity planning |
+| **Business Operations** | 运营 (Business Ops) | KPIs, user journey, conversion, business impact |
+| **AIOps** | 运维 (IT Operations) | Infrastructure monitoring, diagnostics, automation |
+
+By leveraging a **hierarchical multi-agent collaboration system**, EntropyOps bridges the gap between business strategy, operational execution, and technical infrastructure.
+
+### Why EntropyOps?
 
 Unlike traditional infrastructure monitoring tools, EntropyOps provides:
 
@@ -27,28 +39,41 @@ Unlike traditional infrastructure monitoring tools, EntropyOps provides:
 - **End-to-end visibility** - From user behavior to infrastructure components across 5 architectural layers
 - **Intelligent automation** - Self-healing capabilities with human-in-the-loop oversight
 
-### Core Philosophy
+---
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        EntropyOps                               │
-├───────────────────┬───────────────────┬─────────────────────────┤
-│   运筹 (OR)       │   运营 (Biz)      │      运维 (Ops)         │
-│   ─────────       │   ─────────       │      ─────────          │
-│   • 资源优化      │   • 业务指标      │      • 基础设施监控     │
-│   • 智能调度      │   • 用户旅程      │      • 故障诊断         │
-│   • 容量规划      │   • 转化分析      │      • 告警管理         │
-│   • 成本优化      │   • 影响评估      │      • 变更管理         │
-└───────────────────┴───────────────────┴─────────────────────────┘
-                              │
-                    ┌─────────▼─────────┐
-                    │  AI Decision      │
-                    │  Engine           │
-                    │  (Multi-Agent)    │
-                    └───────────────────┘
-```
+## The Three Pillars
 
-### Key Capabilities
+### 1. AI Operations Research (运筹)
+
+<div align="center">
+<img src="doc/images/AI-Operation-Research.png" alt="AI Operations Research" width="100%" />
+</div>
+
+*Intelligent decision optimization for resource allocation, scheduling, and capacity planning.*
+
+---
+
+### 2. AI Business Operations (运营)
+
+<div align="center">
+<img src="doc/images/AI-Business-Operation.png" alt="AI Business Operations" width="100%" />
+</div>
+
+*Business metrics monitoring, user journey analysis, and impact assessment.*
+
+---
+
+### 3. AIOps (运维)
+
+<div align="center">
+<img src="doc/images/AIOps.png" alt="AIOps" width="100%" />
+</div>
+
+*Infrastructure monitoring, intelligent diagnostics, and automated remediation.*
+
+---
+
+## Key Capabilities
 
 - **Hierarchical Agent Collaboration** - Multi-level agent system with Global Supervisors, Team Supervisors, and specialized Workers for complex problem-solving
 - **5-Layer Topology Visualization** - Business Scenario → Business Flow → Application → Middleware → Infrastructure
@@ -511,8 +536,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Unifying Operations Research · Business Operations · IT Operations**
+**AI-Driven Operations Stack**
 
-**运筹 · 运营 · 运维 — 智能一体化**
+**From Decision Optimization to Business Operations and AIOps**
 
 </div>
