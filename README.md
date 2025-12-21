@@ -295,6 +295,176 @@ npm run preview
 
 ---
 
+## Roadmap: AI-Powered Unified Operations Platform
+
+EntropyOps is evolving into a comprehensive **AI Operations Research · Business Operations · IT Operations** integrated platform.
+
+### Vision
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    AI 运筹·运营·运维 一体化平台                           │
+├─────────────────────┬─────────────────────┬─────────────────────────────┤
+│      运筹 (OR)      │      运营 (Biz)     │         运维 (Ops)          │
+│  Decision & Optim.  │  Business Metrics   │     IT Operations          │
+├─────────────────────┴─────────────────────┴─────────────────────────────┤
+│                         AI Decision Engine                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                       Unified Data Platform                             │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Current Capabilities ✅
+
+- [x] Infrastructure topology visualization (5-layer model)
+- [x] Multi-agent collaborative diagnostics
+- [x] Resource discovery & management
+- [x] AI-powered report generation
+- [x] Global chat assistant
+
+---
+
+### Phase 1: AIOps Enhancement (IT Operations)
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Alert Management** | Alert aggregation, noise reduction, correlation, storm suppression | 🔲 Planned |
+| **Anomaly Detection** | AI-based anomaly detection for metrics, logs, and traces | 🔲 Planned |
+| **Root Cause Analysis** | Fault propagation analysis, automatic root cause identification | 🔲 Planned |
+| **Change Risk Assessment** | Pre-change impact analysis, risk scoring, rollback suggestions | 🔲 Planned |
+| **Capacity Forecasting** | Resource usage trend prediction, scaling recommendations | 🔲 Planned |
+| **SLO/SLA Management** | Service level objectives, error budget tracking | 🔲 Planned |
+| **Incident Management** | Incident lifecycle, on-call scheduling, escalation policies | 🔲 Planned |
+| **Knowledge Base** | Fault case library, solution recommendations, similar issue matching | 🔲 Planned |
+
+---
+
+### Phase 2: Business Operations Integration
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Business Metrics Dashboard** | Real-time KPI monitoring (GMV, conversion rate, user activity) | 🔲 Planned |
+| **User Journey Analysis** | End-to-end behavior paths, conversion funnels, churn analysis | 🔲 Planned |
+| **Business-Tech Correlation** | Causal relationship between business and technical metrics | 🔲 Planned |
+| **Business Impact Assessment** | Quantify technical failures' business impact (revenue loss, affected users) | 🔲 Planned |
+| **A/B Experiment Platform** | Experiment design, traffic allocation, effect analysis | 🔲 Planned |
+| **Business Health Score** | Multi-dimensional business health scoring and early warning | 🔲 Planned |
+| **Cost Allocation** | Cloud resource cost allocation by business line/product | 🔲 Planned |
+| **Operations Calendar** | Promotions, events scheduling linked with system protection | 🔲 Planned |
+
+---
+
+### Phase 3: Operations Research & Decision Optimization
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Intelligent Scheduling** | Optimal scheduling strategies for tasks, resources, and traffic | 🔲 Planned |
+| **Resource Optimization** | Cloud resource configuration optimization, cost-performance balance | 🔲 Planned |
+| **Predictive Auto-scaling** | Elastic scaling decisions based on business forecasting | 🔲 Planned |
+| **Multi-objective Optimization** | Balance cost, performance, and availability trade-offs | 🔲 Planned |
+| **Simulation & What-if Analysis** | Architecture change simulation, scenario analysis | 🔲 Planned |
+| **Resource Planning** | Mid-to-long term resource procurement and configuration planning | 🔲 Planned |
+| **On-call Optimization** | Optimal on-call and duty scheduling | 🔲 Planned |
+
+---
+
+### Phase 4: Intelligent Closed-loop Automation
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Self-healing System** | Automated fault detection, decision, and remediation | 🔲 Planned |
+| **Continuous Optimization** | Ongoing system tuning based on feedback loops | 🔲 Planned |
+| **Knowledge Accumulation** | Learning from incidents and building organizational knowledge | 🔲 Planned |
+
+---
+
+### Target Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Unified Data Platform                           │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
+│  │ Metrics  │  │  Logs    │  │  Traces  │  │ Business │               │
+│  │          │  │          │  │          │  │  Events  │               │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘               │
+│       └─────────────┴─────────────┴─────────────┘                      │
+│                           │                                             │
+│                ┌──────────▼──────────┐                                 │
+│                │  Unified Data Model │                                 │
+│                │ (Entity-Relation    │                                 │
+│                │     Knowledge Graph)│                                 │
+│                └──────────┬──────────┘                                 │
+└───────────────────────────┼─────────────────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────────────────┐
+│                       AI Decision Engine                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │
+│  │   Anomaly    │  │  Root Cause  │  │  Predictive  │                  │
+│  │  Detection   │  │   Analysis   │  │   Warning    │                  │
+│  └──────────────┘  └──────────────┘  └──────────────┘                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │
+│  │ Optimization │  │  Simulation  │  │  Automated   │                  │
+│  │ Suggestions  │  │  & What-if   │  │  Decisions   │                  │
+│  └──────────────┘  └──────────────┘  └──────────────┘                  │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────────────────┐
+│                      Automation Execution Layer                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │
+│  │ Self-healing │  │   Ticket     │  │   Change     │                  │
+│  │   Actions    │  │  Workflow    │  │  Execution   │                  │
+│  └──────────────┘  └──────────────┘  └──────────────┘                  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Planned Module Structure
+
+```
+├── Data Layer
+│   ├── Collectors
+│   │   ├── MetricCollector      # Prometheus/InfluxDB integration
+│   │   ├── LogCollector         # ELK/Loki integration
+│   │   ├── TraceCollector       # Jaeger/Zipkin integration
+│   │   └── BusinessEventCollector
+│   ├── Storage
+│   │   ├── TimeSeriesDB
+│   │   ├── GraphDB              # Knowledge graph
+│   │   └── VectorDB             # Semantic search
+│   └── Governance
+│
+├── Intelligence Layer
+│   ├── Detection Engine
+│   │   ├── AnomalyDetector
+│   │   ├── PatternMatcher
+│   │   └── ThresholdManager
+│   ├── Analysis Engine
+│   │   ├── RootCauseAnalyzer
+│   │   ├── ImpactAnalyzer
+│   │   └── CorrelationEngine
+│   ├── Prediction Engine
+│   │   ├── CapacityForecaster
+│   │   ├── TrendPredictor
+│   │   └── RiskScorer
+│   └── Optimization Engine
+│       ├── ResourceOptimizer
+│       ├── CostOptimizer
+│       └── ScheduleOptimizer
+│
+├── Decision Layer
+│   ├── Policy Engine
+│   ├── Approval Workflow
+│   └── Human-in-the-loop
+│
+└── Execution Layer
+    ├── Orchestration
+    ├── Runbook Execution
+    └── Change Management
+```
+
+---
+
 ## Contributing
 
 Contributions are welcome! Please read our contributing guidelines before submitting PRs.
