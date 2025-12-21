@@ -4,7 +4,7 @@ export enum AgentStatus {
   THINKING = 'THINKING',
   WORKING = 'WORKING',
   COMPLETED = 'COMPLETED',
-  WAITING = 'WAITING', // Waiting for sub-agents
+  WAITING = 'WAITING',
   ERROR = 'ERROR'
 }
 
@@ -18,7 +18,7 @@ export interface AgentConfig {
   model: string;
   temperature: number;
   systemInstruction: string;
-  defaultContext?: string; // "User Prompt" / Standing Order
+  defaultContext?: string;
 }
 
 export interface AgentFindings {
@@ -30,16 +30,16 @@ export interface Agent {
   id: string;
   name: string;
   role: AgentRole;
-  specialty?: string; // e.g., "Performance Analyst", "Security"
+  specialty?: string;
   status: AgentStatus;
   currentTask?: string;
   findings: AgentFindings;
-  config?: AgentConfig; // Configuration for Supervisors/Agents
+  config?: AgentConfig;
 }
 
 export interface Team {
   id: string;
-  resourceId: string; // Links to Topology Node
+  resourceId: string;
   name: string;
   supervisor: Agent;
   members: Agent[];
@@ -50,13 +50,33 @@ export interface LogMessage {
   timestamp: number;
   fromAgentId: string;
   fromAgentName: string;
-  toAgentId?: string; // If undefined, it's a broadcast or internal thought
+  toAgentId?: string;
   content: string;
   type: 'instruction' | 'report' | 'thought' | 'system';
   isStreaming?: boolean;
 }
 
-// Topology Definitions
+export interface TraceStep {
+  id: string;
+  timestamp: number;
+  type: 'thought' | 'action' | 'observation' | 'output';
+  content: string;
+  metadata?: any;
+}
+
+export interface AgentExecutionRecord {
+  id: string;
+  agentId: string;
+  sessionId: string;
+  teamName: string;
+  resourceLabel: string;
+  startTime: number;
+  duration: number; // ms
+  status: 'Success' | 'Warning' | 'Error';
+  summary: string;
+  steps: TraceStep[];
+}
+
 export interface TopologyNode {
   id: string;
   label: string;
@@ -71,7 +91,7 @@ export type LinkType = 'call' | 'deployment' | 'dependency';
 export interface TopologyLink {
   source: string;
   target: string;
-  type?: LinkType; // Default to 'call' if undefined
+  type?: LinkType;
 }
 
 export interface Topology {
@@ -83,10 +103,10 @@ export interface TopologyGroup {
   id: string;
   name: string;
   description: string;
-  nodeCount: number; // Keep for display cache, or calculate dynamic
+  nodeCount: number;
   createdAt: string;
   tags?: string[];
-  nodeIds: string[]; // List of Resource IDs belonging to this topology group
+  nodeIds: string[];
 }
 
 export interface DiagnosisSession {
@@ -95,9 +115,24 @@ export interface DiagnosisSession {
   timestamp: number;
   status: 'Running' | 'Completed' | 'Failed';
   findings: { warnings: number; critical: number };
-  scope: string; // 'Global' or Topology Name
-  scopeId?: string; // ID for linking back to specific topology
-  relatedNodeIds?: string[]; // IDs of nodes involved in this session
+  scope: string;
+  scopeId?: string;
+  relatedNodeIds?: string[];
+}
+
+export interface ChatAttachment {
+  type: 'Resource' | 'Topology';
+  id: string;
+  label: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  attachments?: ChatAttachment[];
+  isStreaming?: boolean;
 }
 
 export interface PromptTemplate {
@@ -112,8 +147,8 @@ export interface PromptTemplate {
 
 export interface AIModel {
   id: string;
-  name: string; // e.g., "gemini-1.5-pro"
-  provider: string; // "Google"
+  name: string;
+  provider: string;
   contextWindow: number;
   type: 'Text' | 'Multimodal' | 'Audio';
   status: 'Active' | 'Deprecated';
@@ -133,8 +168,8 @@ export interface Report {
   type: 'Diagnosis' | 'Audit' | 'Performance' | 'Security';
   status: 'Draft' | 'Final' | 'Archived';
   createdAt: number;
-  author: string; // e.g., "Global Supervisor"
+  author: string;
   summary: string;
-  content: string; // Full text content
+  content: string;
   tags: string[];
 }

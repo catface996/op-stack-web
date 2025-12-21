@@ -18,7 +18,10 @@ import {
   AlertTriangle,
   Zap,
   Activity,
-  Network
+  Network,
+  LayoutList,
+  LayoutGrid,
+  ArrowUpRight
 } from 'lucide-react';
 
 interface TopologyManagementProps {
@@ -46,6 +49,7 @@ const SubGraphManagement: React.FC<TopologyManagementProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
   
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,8 +126,8 @@ const SubGraphManagement: React.FC<TopologyManagementProps> = ({
         </button>
       </div>
 
-      {/* Search & Stats */}
-      <div className="flex items-center justify-between mb-6 bg-slate-900/50 p-3 rounded-lg border border-slate-800 shrink-0">
+      {/* Toolbar: Search & View Toggle */}
+      <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4 shrink-0 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
           <input
@@ -134,113 +138,213 @@ const SubGraphManagement: React.FC<TopologyManagementProps> = ({
             className="w-full bg-slate-950 border border-slate-700 rounded-md py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-cyan-500 text-slate-200"
           />
         </div>
-        <div className="text-xs text-slate-500 hidden sm:block">
-          Showing <span className="text-white font-bold">{paginatedTopologyGroups.length}</span> of <span className="text-white font-bold">{filteredTopologyGroups.length}</span> topologies
+        
+        <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+            {/* View Mode Toggle */}
+            <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-700">
+                <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-slate-800 text-cyan-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                    title="List View"
+                >
+                    <LayoutList size={16} />
+                </button>
+                <button
+                    onClick={() => setViewMode('card')}
+                    className={`p-1.5 rounded transition-all ${viewMode === 'card' ? 'bg-slate-800 text-cyan-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                    title="Card View"
+                >
+                    <LayoutGrid size={16} />
+                </button>
+            </div>
+
+            <div className="text-xs text-slate-500 hidden sm:block whitespace-nowrap">
+              Showing <span className="text-white font-bold">{paginatedTopologyGroups.length}</span> of <span className="text-white font-bold">{filteredTopologyGroups.length}</span>
+            </div>
         </div>
       </div>
 
-      {/* Grid Layout */}
-      <div className="flex-1 overflow-auto custom-scrollbar">
+      {/* Content Area */}
+      <div className="flex-1 overflow-auto custom-scrollbar relative">
         {paginatedTopologyGroups.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
-            {paginatedTopologyGroups.map((tg) => {
-              const isActive = activeScopeId === tg.id;
-              const isRunning = isActive && isSimulating;
+          viewMode === 'card' ? (
+            // CARD VIEW (Grid)
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+              {paginatedTopologyGroups.map((tg) => {
+                const isActive = activeScopeId === tg.id;
+                const isRunning = isActive && isSimulating;
 
-              return (
-                <div 
-                  key={tg.id} 
-                  onClick={() => onEnter(tg.id)} // Enter the canvas on card click
-                  className={`
-                    group relative bg-slate-900 border rounded-xl p-5 transition-all cursor-pointer flex flex-col h-[220px]
-                    ${isActive 
-                      ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)] bg-indigo-950/10' 
-                      : 'border-slate-800 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-900/10'
-                    }
-                  `}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={`
-                      p-2 rounded-lg border transition-colors
+                return (
+                  <div 
+                    key={tg.id} 
+                    onClick={() => onEnter(tg.id)}
+                    className={`
+                      group relative bg-slate-900 border rounded-xl p-5 transition-all cursor-pointer flex flex-col h-[220px]
                       ${isActive 
-                        ? 'bg-indigo-950/40 border-indigo-500/40' 
-                        : 'bg-slate-950 border-slate-800 group-hover:border-cyan-500/30 group-hover:bg-cyan-950/20'
+                        ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)] bg-indigo-950/10' 
+                        : 'border-slate-800 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-900/10'
                       }
-                    `}>
-                      <Network size={20} className={isActive ? 'text-indigo-400' : 'text-cyan-500'} />
+                    `}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={`
+                        p-2 rounded-lg border transition-colors
+                        ${isActive 
+                          ? 'bg-indigo-950/40 border-indigo-500/40' 
+                          : 'bg-slate-950 border-slate-800 group-hover:border-cyan-500/30 group-hover:bg-cyan-950/20'
+                        }
+                      `}>
+                        <Network size={20} className={isActive ? 'text-indigo-400' : 'text-cyan-500'} />
+                      </div>
+                      <div className="flex gap-1">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); openDetailModal(tg); }}
+                            className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-slate-800 rounded transition-colors"
+                            title="View Metadata"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); openEditModal(tg); }}
+                            className="p-1.5 text-slate-500 hover:text-blue-400 hover:bg-slate-800 rounded transition-colors"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button 
+                            onClick={(e) => promptDelete(e, tg)}
+                            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button 
-                          onClick={(e) => { e.stopPropagation(); openDetailModal(tg); }}
-                          className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-slate-800 rounded transition-colors"
-                          title="View Metadata"
-                      >
-                        <Eye size={14} />
-                      </button>
-                      <button 
-                          onClick={(e) => { e.stopPropagation(); openEditModal(tg); }}
-                          className="p-1.5 text-slate-500 hover:text-blue-400 hover:bg-slate-800 rounded transition-colors"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button 
-                          onClick={(e) => promptDelete(e, tg)}
-                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+
+                    <h3 className={`text-lg font-bold mb-1 line-clamp-1 transition-colors ${isActive ? 'text-indigo-300' : 'text-white group-hover:text-cyan-400'}`}>
+                      {tg.name}
+                    </h3>
+                    <p className="text-slate-400 text-xs line-clamp-2 mb-4 flex-1">{tg.description}</p>
+                    
+                    {isActive && (
+                       <div 
+                          onClick={(e) => { e.stopPropagation(); onNavigateToDiagnosis(); }}
+                          className={`
+                            absolute bottom-[4.5rem] right-4 px-2 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 cursor-pointer hover:scale-105 transition-transform
+                            ${isRunning 
+                              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 animate-pulse' 
+                              : 'bg-indigo-950 text-indigo-300 border border-indigo-500/30'
+                            }
+                          `}
+                       >
+                          {isRunning ? <Zap size={10} className="fill-current" /> : <Activity size={10} />}
+                          {isRunning ? 'Running' : 'Active'}
+                       </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-1 mb-3">
+                        {tg.tags?.slice(0, 2).map((tag, i) => (
+                            <span key={i} className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">
+                              {tag}
+                            </span>
+                        ))}
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                        <span className="flex items-center gap-1">
+                            <Layers size={12} /> {tg.nodeIds?.length || 0} Nodes
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <Calendar size={12} /> {new Date(tg.createdAt).toLocaleDateString()}
+                        </span>
                     </div>
                   </div>
-
-                  <h3 className={`text-lg font-bold mb-1 line-clamp-1 transition-colors ${isActive ? 'text-indigo-300' : 'text-white group-hover:text-cyan-400'}`}>
-                    {tg.name}
-                  </h3>
-                  <p className="text-slate-400 text-xs line-clamp-2 mb-4 flex-1">{tg.description}</p>
-                  
-                  {/* Diagnosis Status Badge */}
-                  {isActive && (
-                     <div 
-                        onClick={(e) => { e.stopPropagation(); onNavigateToDiagnosis(); }}
-                        className={`
-                          absolute bottom-[4.5rem] right-4 px-2 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 cursor-pointer hover:scale-105 transition-transform
-                          ${isRunning 
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 animate-pulse' 
-                            : 'bg-indigo-950 text-indigo-300 border border-indigo-500/30'
-                          }
-                        `}
-                     >
-                        {isRunning ? <Zap size={10} className="fill-current" /> : <Activity size={10} />}
-                        {isRunning ? 'Diagnosis Running' : 'Diagnosis Active'}
-                     </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2 mb-3">
-                      {tg.tags?.slice(0, 3).map((tag, i) => (
-                          <span key={i} className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">
-                            {tag}
+                );
+              })}
+            </div>
+          ) : (
+            // LIST VIEW (Table)
+            <div className="bg-slate-900/30 border border-slate-800 rounded-lg overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-950 sticky top-0 z-10">
+                  <tr>
+                    <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">Topology Name</th>
+                    <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">ID</th>
+                    <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-center">Nodes</th>
+                    <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">Status</th>
+                    <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">Created</th>
+                    <th className="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 bg-slate-900">
+                  {paginatedTopologyGroups.map((tg) => {
+                    const isActive = activeScopeId === tg.id;
+                    const isRunning = isActive && isSimulating;
+                    
+                    return (
+                      <tr key={tg.id} className="hover:bg-slate-800/50 transition-colors group cursor-pointer" onClick={() => onEnter(tg.id)}>
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-1.5 rounded ${isActive ? 'bg-indigo-900 text-indigo-400' : 'bg-slate-950 text-cyan-500'}`}>
+                              <Network size={16} />
+                            </div>
+                            <div>
+                              <div className="text-sm font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{tg.name}</div>
+                              <div className="text-[10px] text-slate-500 line-clamp-1 max-w-[200px]">{tg.description}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-xs font-mono text-slate-500">{tg.id}</td>
+                        <td className="p-4 text-center">
+                          <span className="px-2 py-1 rounded bg-slate-950 border border-slate-800 text-xs font-bold text-slate-300">
+                            {tg.nodeIds?.length || 0}
                           </span>
-                      ))}
-                      {tg.tags && tg.tags.length > 3 && (
-                          <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-500">
-                            +{tg.tags.length - 3}
-                          </span>
-                      )}
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
-                      <span className="flex items-center gap-1">
-                          <Layers size={12} /> {tg.nodeIds?.length || 0} Nodes
-                      </span>
-                      <span className="flex items-center gap-1">
-                          <Calendar size={12} /> {new Date(tg.createdAt).toLocaleDateString()}
-                      </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                        </td>
+                        <td className="p-4">
+                          {isActive ? (
+                            <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase ${isRunning ? 'text-indigo-400 animate-pulse' : 'text-indigo-300'}`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-indigo-400' : 'bg-indigo-300'}`}></div>
+                              {isRunning ? 'Running' : 'Active'}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-600 uppercase font-bold">Idle</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-xs text-slate-500 font-mono">
+                          {new Date(tg.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onEnter(tg.id); }}
+                                className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-cyan-400"
+                                title="Open Canvas"
+                            >
+                              <ArrowUpRight size={16} />
+                            </button>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); openEditModal(tg); }}
+                                className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-blue-400"
+                                title="Edit"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                                onClick={(e) => promptDelete(e, tg)}
+                                className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-red-400"
+                                title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
         ) : (
-           <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+           <div className="flex flex-col items-center justify-center h-64 text-slate-500 bg-slate-900/20 border border-dashed border-slate-800 rounded-xl">
               <Network size={48} className="opacity-20 mb-4" />
               <p>No topologies found matching your search.</p>
            </div>
@@ -339,7 +443,7 @@ const TopologyFormModal: React.FC<{
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+        <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/50 rounded-t-xl">
           <h3 className="font-bold text-white">{tg ? 'Edit Topology' : 'Create Topology'}</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
         </div>

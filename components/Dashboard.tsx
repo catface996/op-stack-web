@@ -39,8 +39,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   
   const stats = teams.reduce((acc, team) => {
     // Sum findings from supervisor and members
-    const teamWarnings = team.supervisor.findings.warnings + team.members.reduce((s, m) => s + m.findings.warnings, 0);
-    const teamCritical = team.supervisor.findings.critical + team.members.reduce((s, m) => s + m.findings.critical, 0);
+    // Using Number casting to ensure operands are recognized as numbers for arithmetic safety.
+    // Fix: Explicitly cast accumulator as number to prevent TS2362 error.
+    const teamWarnings = (Number(team.supervisor.findings?.warnings) || 0) + team.members.reduce((s: number, m) => s + (Number(m.findings?.warnings) || 0), 0);
+    const teamCritical = (Number(team.supervisor.findings?.critical) || 0) + team.members.reduce((s: number, m) => s + (Number(m.findings?.critical) || 0), 0);
     
     if (teamCritical > 0) acc.critical++;
     else if (teamWarnings > 0) acc.warning++;
@@ -138,7 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                               type === 'Gateway' ? 'bg-pink-500' :
                               type === 'Cache' ? 'bg-orange-500' : 'bg-blue-500'
                            }`}
-                           style={{ width: `${(count / totalNodes) * 100}%` }}
+                           style={{ width: `${totalNodes > 0 ? (count / totalNodes) * 100 : 0}%` }}
                          ></div>
                       </div>
                    </div>
@@ -153,9 +155,18 @@ const Dashboard: React.FC<DashboardProps> = ({
               </h3>
               <div className="space-y-2 overflow-y-auto max-h-[300px] custom-scrollbar pr-2">
                 {teams.map(team => {
-                   const totalIssues = team.supervisor.findings.warnings + team.supervisor.findings.critical + 
-                                       team.members.reduce((a,b) => a + b.findings.warnings + b.findings.critical, 0);
-                   const isCrit = team.supervisor.findings.critical > 0 || team.members.some(m => m.findings.critical > 0);
+                   // Calculate total issues for this team by summing supervisor and member findings.
+                   // Ensure all values are treated as numbers for arithmetic safety.
+                   const supervisorIssues = (Number(team.supervisor.findings?.warnings) || 0) + (Number(team.supervisor.findings?.critical) || 0);
+                   const workerIssues = team.members.reduce((sum: number, member) => {
+                     const w = Number(member.findings?.warnings) || 0;
+                     const c = Number(member.findings?.critical) || 0;
+                     return sum + w + c;
+                   }, 0);
+                   
+                   // Summing supervisor and worker issues with explicit type conversion check.
+                   const totalIssues = supervisorIssues + workerIssues;
+                   const isCrit = (team.supervisor.findings?.critical ?? 0) > 0 || team.members.some(m => (m.findings?.critical ?? 0) > 0);
                    const isWarn = !isCrit && totalIssues > 0;
                    
                    return (
@@ -217,12 +228,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                             <div className="flex gap-2">
                                {session.findings.critical > 0 && (
-                                 <span className="flex items-center gap-1 text-[10px] text-red-500 bg-red-950/30 px-1.5 rounded">
+                                 <span className="flex items-center gap-1 text-[10px] text-red-500 bg-red-950/30 px-1.5 rounded border border-red-900/30">
                                    <AlertOctagon size={10} /> {session.findings.critical}
                                  </span>
                                )}
                                {session.findings.warnings > 0 && (
-                                 <span className="flex items-center gap-1 text-[10px] text-yellow-500 bg-yellow-950/30 px-1.5 rounded">
+                                 <span className="flex items-center gap-1 text-[10px] text-yellow-500 bg-yellow-950/30 px-1.5 rounded border border-yellow-900/30">
                                    <AlertTriangle size={10} /> {session.findings.warnings}
                                  </span>
                                )}

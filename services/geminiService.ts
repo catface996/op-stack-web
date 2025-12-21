@@ -1,164 +1,104 @@
-import { Team, Agent, Topology } from "../types";
+
+import { GoogleGenAI } from "@google/genai";
+import { Team, Agent, Topology, TopologyGroup, TopologyNode, ChatMessage } from "../types";
 
 // Helper to simulate typing delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Mock content generator based on specialty
 const getMockContent = (specialty?: string): string[] => {
-  const defaults = [
-    "Initializing protocol handshake...",
-    "Scanning local context buffers...",
-    "Correlating data points with baseline models...",
-    "Heuristic analysis complete."
-  ];
-
-  if (!specialty) return defaults;
-
+  const defaults = ["Initializing protocol handshake...", "Scanning local context buffers...", "Heuristic analysis complete."];
   const contentMap: Record<string, string[]> = {
-    'Query Optimization': [
-      "Analyzing query execution plans (Explain Analyze)...",
-      "Detected full table scan on 'orders' relation.",
-      "Index scan density is optimal at 92%.",
-      "Buffer pool hit ratio holding at 99.5%."
-    ],
-    'Consistency Check': [
-      "Verifying ACID transaction compliance...",
-      "Cross-referencing Write-Ahead Logs (WAL).",
-      "Replication lag is < 2ms.",
-      "Data integrity checksum verification passed."
-    ],
-    'Error Tracking': [
-      "Parsing /var/log/app/error.log stream...",
-      "Grouping stack traces by exception signature.",
-      "Found 3 occurrences of ConnectionTimeoutException.",
-      "Error rate is within nominal thresholds (0.01%)."
-    ],
-    'Load Analysis': [
-      "Sampling request throughput (RPS)...",
-      "Latency p99 distribution indicates minor spikes.",
-      "Concurrent connection pool usage at 45%.",
-      "Resource saturation analysis negative."
-    ],
-    'Uptime': [
-      "Pinging health check endpoints...",
-      "Heartbeat signal received. Latency: 12ms.",
-      "Service availability calculated at 99.99%.",
-      "Dependencies are reachable."
-    ]
+    'Query Optimization': ["Analyzing query plans...", "Detected full table scan on 'orders'.", "Index scan density is optimal."],
+    'Error Tracking': ["Parsing error logs...", "Grouping stack traces.", "Found 3 ConnectionTimeoutException."],
+    'Load Analysis': ["Sampling throughput...", "Latency p99 distribution indicates spikes.", "Concurrent pool usage at 45%."]
   };
-
   return contentMap[specialty] || defaults;
 };
 
-// 1. Global Supervisor Planning (Mock)
-export const generateGlobalPlan = async (
-  userRequest: string, 
-  topology: Topology, 
-  teams: Team[]
-): Promise<{ teamId: string; instruction: string }[]> => {
-  await delay(1500); // Simulate thinking time
-
-  // Simple keyword matching to make the mock feel responsive
+export const generateGlobalPlan = async (userRequest: string, topology: Topology, teams: Team[]) => {
+  await delay(1500);
   const req = userRequest.toLowerCase();
-  const selectedTeams: Team[] = [];
-
-  if (req.includes('database') || req.includes('db') || req.includes('consistency')) {
-    const dbTeam = teams.find(t => t.name.includes('DB'));
-    if (dbTeam) selectedTeams.push(dbTeam);
-  }
-  
-  if (req.includes('payment') || req.includes('security')) {
-    const paymentTeam = teams.find(t => t.name.includes('Payment'));
-    if (paymentTeam) selectedTeams.push(paymentTeam);
-  }
-  
-  if (req.includes('gateway') || req.includes('traffic')) {
-     const gwTeam = teams.find(t => t.name.includes('Gateway'));
-     if (gwTeam && !selectedTeams.includes(gwTeam)) selectedTeams.push(gwTeam);
-  }
-
-  // Fallback: Pick first two if no keywords matched
-  if (selectedTeams.length === 0) {
-    selectedTeams.push(teams[0]);
-    if (teams.length > 1) selectedTeams.push(teams[1]);
-  }
-
-  return selectedTeams.map(t => ({
-    teamId: t.id,
-    instruction: `Analyze metrics and logs related to: "${userRequest}". Ensure stability of ${t.name}.`
-  }));
+  const selectedTeams = teams.filter(t => 
+    req.includes(t.name.toLowerCase().split(' ')[0]) || 
+    (t.name.includes('DB') && (req.includes('database') || req.includes('consistency')))
+  );
+  if (selectedTeams.length === 0) selectedTeams.push(teams[0]);
+  return selectedTeams.map(t => ({ teamId: t.id, instruction: `Analyze: "${userRequest}" for ${t.name}.` }));
 };
 
-// 2. Team Supervisor Delegation (Mock)
-export const generateTeamDelegation = async (
-  team: Team,
-  instruction: string
-): Promise<{ agentId: string; task: string }[]> => {
-  await delay(1000); // Simulate thinking
-
-  // Assign task to all members for the demo
-  return team.members.map(member => ({
-    agentId: member.id,
-    task: `Execute ${member.specialty} protocols. Context: ${instruction}`
-  }));
+export const generateTeamDelegation = async (team: Team, instruction: string) => {
+  await delay(1000);
+  return team.members.map(member => ({ agentId: member.id, task: `Execute ${member.specialty}. Context: ${instruction}` }));
 };
 
-// 3. Worker Execution (Streaming Mock)
-export async function* streamWorkerTask(
-  agent: Agent,
-  task: string,
-  context: string
-): AsyncGenerator<string> {
+export async function* streamWorkerTask(agent: Agent, task: string, context: string): AsyncGenerator<string> {
   const steps = getMockContent(agent.specialty);
-  
-  // Intro
-  yield `[Task Initiated] Agent: ${agent.name}\n`;
-  yield `Context: ${context.substring(0, 50)}...\n\n`;
-  await delay(200);
-
+  yield `[Task Initiated] Agent: ${agent.name}\nContext: ${context.substring(0, 50)}...\n\n`;
   for (const step of steps) {
-    const words = step.split(" ");
-    for (const word of words) {
-      yield word + " ";
-      await delay(30 + Math.random() * 50); // Random typing speed
-    }
-    yield "\n";
-    await delay(400); // Pause between lines
+    for (const word of step.split(" ")) { yield word + " "; await delay(30 + Math.random() * 40); }
+    yield "\n"; await delay(300);
   }
-  
-  yield "\nFinalizing report...\n";
-  await delay(300);
-
-  // Randomly generate findings
-  // 30% chance of warning, 10% chance of critical
   const r = Math.random();
-  const warnings = r < 0.3 ? Math.floor(Math.random() * 3) + 1 : 0;
-  const critical = r < 0.1 ? 1 : 0;
-
-  yield `SUMMARY: {"warnings": ${warnings}, "critical": ${critical}}`;
+  yield `\nSUMMARY: {"warnings": ${r < 0.3 ? 1 : 0}, "critical": ${r < 0.1 ? 1 : 0}}`;
 }
 
-// 4. Team Supervisor Synthesis (Streaming Mock)
-export async function* streamTeamReport(
-  team: Team,
-  instruction: string,
-  workerResults: { agentName: string; result: string }[]
-): AsyncGenerator<string> {
-  const lines = [
-    `Reporting for ${team.name}.`,
-    `Directive: "${instruction}" has been executed.`,
-    `Aggregated Status: Nominal.`,
-    `Sub-agent reports have been consolidated.`,
-    `Awaiting further instructions from Global Supervisor.`
-  ];
-
+export async function* streamTeamReport(team: Team, instruction: string, workerResults: any[]): AsyncGenerator<string> {
+  const lines = [`Reporting for ${team.name}.`, `Directive executed.`, `Aggregated Status: Nominal.`];
   for (const line of lines) {
-    const words = line.split(" ");
-    for (const word of words) {
-      yield word + " ";
-      await delay(20);
+    for (const word of line.split(" ")) { yield word + " "; await delay(20); }
+    yield "\n"; await delay(100);
+  }
+}
+
+// --- Real Gemini Chat Integration ---
+
+export async function* streamChatResponse(
+  prompt: string,
+  history: ChatMessage[],
+  context: {
+    nodes: TopologyNode[];
+    groups: TopologyGroup[];
+    allTeams: Team[];
+  }
+): AsyncGenerator<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  // Format history for Gemini
+  const contents = history.map(msg => ({
+    role: msg.role === 'user' ? 'user' : 'model',
+    parts: [{ text: msg.content }]
+  }));
+
+  // Construct context-rich system instruction
+  const systemInstruction = `You are the EntropyOps Senior AI Orchestrator. 
+You are an interface to a Hierarchical Multi-Agent System that manages distributed infrastructure.
+CURRENT SYSTEM STATE:
+- Total Resources: ${context.nodes.length}
+- Total Topology Groups: ${context.groups.length}
+- Total Agent Teams: ${context.allTeams.length}
+
+Use the technical metadata provided in the user's attachments to give precise advice. 
+If asked to "run" something, explain that they should use the Command Center for formal agent execution.
+Be concise, professional, and use Markdown for technical details.`;
+
+  // Add the current prompt
+  contents.push({
+    role: 'user',
+    parts: [{ text: prompt }]
+  });
+
+  try {
+    const responseStream = await ai.models.generateContentStream({
+      model: 'gemini-3-pro-preview',
+      contents,
+      config: { systemInstruction }
+    });
+
+    for await (const chunk of responseStream) {
+      if (chunk.text) yield chunk.text;
     }
-    yield "\n";
-    await delay(100);
+  } catch (error) {
+    console.error("Gemini Chat Error:", error);
+    yield "I encountered an error connecting to the neural core. Please check your system configuration.";
   }
 }
