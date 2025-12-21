@@ -1,6 +1,15 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { TopologyNode, Team, TopologyGroup, Agent, AgentRole, AgentStatus, AgentConfig, DiagnosisSession } from '../types';
+import { TopologyNode, Team, TopologyGroup, Agent, AgentRole, AgentStatus, AgentConfig, DiagnosisSession, TopologyLayer } from '../types';
+
+// Layer options for the dropdown
+const LAYER_OPTIONS: { value: TopologyLayer; label: string }[] = [
+  { value: 'scenario', label: 'Business Scenario' },
+  { value: 'flow', label: 'Business Flow' },
+  { value: 'application', label: 'Business Application' },
+  { value: 'middleware', label: 'Middleware' },
+  { value: 'infrastructure', label: 'Infrastructure' },
+];
 import { AgentConfigModal } from './AgentConfigModal';
 import {
   ArrowLeft,
@@ -358,7 +367,7 @@ const ResourceDetailView: React.FC<ResourceDetailViewProps> = ({
                          <div className="flex justify-between items-center py-2 border-b border-slate-800/50 h-10">
                             <span className="text-sm text-slate-400">Resource Type</span>
                             {isEditing ? (
-                                <select 
+                                <select
                                     value={editForm.type}
                                     onChange={e => setEditForm({...editForm, type: e.target.value as any})}
                                     className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-500 w-40 text-right"
@@ -367,10 +376,31 @@ const ResourceDetailView: React.FC<ResourceDetailViewProps> = ({
                                     <option value="Database">Database</option>
                                     <option value="Gateway">Gateway</option>
                                     <option value="Cache">Cache</option>
+                                    <option value="Infrastructure">Infrastructure</option>
                                 </select>
                             ) : (
                                 <span className="px-2 py-1 rounded bg-slate-950 border border-slate-800 text-xs font-bold text-slate-200">
                                 {node.type}
+                                </span>
+                            )}
+                         </div>
+
+                         {/* LAYER */}
+                         <div className="flex justify-between items-center py-2 border-b border-slate-800/50 h-10">
+                            <span className="text-sm text-slate-400">Layer</span>
+                            {isEditing ? (
+                                <select
+                                    value={editForm.layer || 'application'}
+                                    onChange={e => setEditForm({...editForm, layer: e.target.value as TopologyLayer})}
+                                    className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-500 w-40 text-right"
+                                >
+                                    {LAYER_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <span className="px-2 py-1 rounded bg-slate-950 border border-slate-800 text-xs font-bold text-slate-200">
+                                {LAYER_OPTIONS.find(l => l.value === node.layer)?.label || 'Business Application'}
                                 </span>
                             )}
                          </div>

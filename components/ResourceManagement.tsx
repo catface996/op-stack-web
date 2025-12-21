@@ -1,6 +1,15 @@
 
 import React, { useState, useMemo } from 'react';
-import { TopologyNode } from '../types';
+import { TopologyNode, TopologyLayer } from '../types';
+
+// Layer options for the dropdown
+const LAYER_OPTIONS: { value: TopologyLayer; label: string }[] = [
+  { value: 'scenario', label: 'Business Scenario' },
+  { value: 'flow', label: 'Business Flow' },
+  { value: 'application', label: 'Business Application' },
+  { value: 'middleware', label: 'Middleware' },
+  { value: 'infrastructure', label: 'Infrastructure' },
+];
 import { 
   Search, 
   Plus, 
@@ -267,12 +276,12 @@ const ResourceManagement: React.FC<ResourceManagementProps> = ({ nodes, onAdd, o
   );
 };
 
-const ResourceFormModal: React.FC<{ 
-  node: TopologyNode | null, 
-  onClose: () => void, 
-  onSave: (node: TopologyNode) => void 
+const ResourceFormModal: React.FC<{
+  node: TopologyNode | null,
+  onClose: () => void,
+  onSave: (node: TopologyNode) => void
 }> = ({ node, onClose, onSave }) => {
-  const [formData, setFormData] = useState<TopologyNode>(node || { id: `node-${Math.random().toString(36).substr(2, 5)}`, label: '', type: 'Service' });
+  const [formData, setFormData] = useState<TopologyNode>(node || { id: `node-${Math.random().toString(36).substr(2, 5)}`, label: '', type: 'Service', layer: 'application' });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border-t-4 border-t-cyan-600">
@@ -286,20 +295,20 @@ const ResourceFormModal: React.FC<{
           <div className="p-4 bg-slate-950/50 rounded-xl border border-slate-800 space-y-4">
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Display Label</label>
-              <input 
-                type="text" 
-                required 
-                value={formData.label} 
-                onChange={e => setFormData({...formData, label: e.target.value})} 
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500/50 outline-none transition-all" 
+              <input
+                type="text"
+                required
+                value={formData.label}
+                onChange={e => setFormData({...formData, label: e.target.value})}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500/50 outline-none transition-all"
                 placeholder="e.g. Core API Gateway"
               />
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Resource Type</label>
-              <select 
-                value={formData.type} 
-                onChange={e => setFormData({...formData, type: e.target.value as any})} 
+              <select
+                value={formData.type}
+                onChange={e => setFormData({...formData, type: e.target.value as any})}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500/50 outline-none transition-all"
               >
                 <option value="Service">Service</option>
@@ -307,6 +316,18 @@ const ResourceFormModal: React.FC<{
                 <option value="Gateway">Gateway</option>
                 <option value="Cache">Cache</option>
                 <option value="Infrastructure">Infrastructure</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Layer</label>
+              <select
+                value={formData.layer || 'application'}
+                onChange={e => setFormData({...formData, layer: e.target.value as TopologyLayer})}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500/50 outline-none transition-all"
+              >
+                {LAYER_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
             </div>
           </div>

@@ -1,5 +1,5 @@
 
-import { Topology, Team, Agent, AgentRole, AgentStatus, TopologyGroup, PromptTemplate, AIModel, AgentTool, Report, DiagnosisSession, AgentExecutionRecord, TraceStep, ReportTemplate, DiscoverySource } from '../types';
+import { Topology, Team, Agent, AgentRole, AgentStatus, TopologyGroup, PromptTemplate, AIModel, AgentTool, Report, DiagnosisSession, AgentExecutionRecord, TraceStep, ReportTemplate, DiscoverySource, TopologyNode, TopologyLink } from '../types';
 
 export const INITIAL_DISCOVERY_SOURCES: DiscoverySource[] = [
   { id: 'src-k8s-prod', name: 'Production K8s Cluster', type: 'K8s', endpoint: 'https://api.k8s.prod.entropy.io', status: 'Connected', lastScan: Date.now() - 3600000 },
@@ -8,12 +8,12 @@ export const INITIAL_DISCOVERY_SOURCES: DiscoverySource[] = [
 ];
 
 // 初始发现的节点和链接（模拟 AI 扫描后发现的新资源）
-export const INITIAL_DISCOVERED_DELTA = {
+export const INITIAL_DISCOVERED_DELTA: { nodes: TopologyNode[]; links: TopologyLink[] } = {
   nodes: [
-    { id: 'billing-svc', label: 'Billing Service', type: 'Service', properties: { replicas: '3', version: 'v2.1.0', namespace: 'finance' } },
-    { id: 'notification-svc', label: 'Notification Hub', type: 'Service', properties: { replicas: '2', channels: 'email,sms,push' } },
-    { id: 'audit-log-db', label: 'Audit Log Store', type: 'Database', properties: { engine: 'MongoDB', size: '120GB' } },
-    { id: 'config-server', label: 'Config Server', type: 'Service', properties: { provider: 'Spring Cloud Config', version: 'v3.0' } },
+    { id: 'billing-svc', label: 'Billing Service', type: 'Service', layer: 'application', properties: { replicas: '3', version: 'v2.1.0', namespace: 'finance' } },
+    { id: 'notification-svc', label: 'Notification Hub', type: 'Service', layer: 'application', properties: { replicas: '2', channels: 'email,sms,push' } },
+    { id: 'audit-log-db', label: 'Audit Log Store', type: 'Database', layer: 'infrastructure', properties: { engine: 'MongoDB', size: '120GB' } },
+    { id: 'config-server', label: 'Config Server', type: 'Service', layer: 'middleware', properties: { provider: 'Spring Cloud Config', version: 'v3.0' } },
   ],
   links: [
     { source: 'payment-svc', target: 'billing-svc', type: 'inferred', confidence: 0.92 },
@@ -66,18 +66,23 @@ spec:
 
 export const INITIAL_TOPOLOGY: Topology = {
   nodes: [
-    { id: 'gateway-01', label: 'API Gateway', type: 'Gateway', properties: { region: 'us-east-1', throughput: '10k' } },
-    { id: 'auth-svc', label: 'Auth Service', type: 'Service', properties: { replicas: '3', version: 'v1.4.2' } },
-    { id: 'payment-svc', label: 'Payment API', type: 'Service', properties: { replicas: '5', version: 'v2.0.1' } },
-    { id: 'order-db', label: 'Order DB (PostgreSQL)', type: 'Database', properties: { size: '500GB' } },
-    { id: 'redis-cache', label: 'Session Cache', type: 'Cache' },
-    { id: 'k8s-cluster', label: 'K8s Cluster', type: 'Infrastructure' }, 
-    { id: 'legacy-monolith', label: 'Legacy Core', type: 'Service', properties: { replicas: '1', deprecated: 'true' } },
-    { id: 'cdn-edge', label: 'Global CDN', type: 'Gateway', properties: { provider: 'CloudFlare', cacheHit: '94%' } },
-    { id: 'web-client', label: 'Web Storefront', type: 'Service', properties: { framework: 'Next.js', replicas: '8' } },
-    { id: 'event-stream', label: 'Kafka Cluster', type: 'Infrastructure', properties: { partitions: '64', retention: '7d' } },
-    { id: 'analytics-dw', label: 'Data Warehouse', type: 'Database', properties: { engine: 'Snowflake', size: '20TB' } },
-    { id: 'ml-model-v1', label: 'Fraud Detection Model', type: 'Service', properties: { framework: 'PyTorch', latency: '45ms' } }
+    // Business Scenario Layer
+    { id: 'web-client', label: 'Web Storefront', type: 'Service', layer: 'scenario', properties: { framework: 'Next.js', replicas: '8' } },
+    // Business Flow Layer
+    { id: 'cdn-edge', label: 'Global CDN', type: 'Gateway', layer: 'flow', properties: { provider: 'CloudFlare', cacheHit: '94%' } },
+    { id: 'gateway-01', label: 'API Gateway', type: 'Gateway', layer: 'flow', properties: { region: 'us-east-1', throughput: '10k' } },
+    // Business Application Layer
+    { id: 'auth-svc', label: 'Auth Service', type: 'Service', layer: 'application', properties: { replicas: '3', version: 'v1.4.2' } },
+    { id: 'payment-svc', label: 'Payment API', type: 'Service', layer: 'application', properties: { replicas: '5', version: 'v2.0.1' } },
+    { id: 'ml-model-v1', label: 'Fraud Detection Model', type: 'Service', layer: 'application', properties: { framework: 'PyTorch', latency: '45ms' } },
+    { id: 'legacy-monolith', label: 'Legacy Core', type: 'Service', layer: 'application', properties: { replicas: '1', deprecated: 'true' } },
+    // Middleware Layer
+    { id: 'redis-cache', label: 'Session Cache', type: 'Cache', layer: 'middleware' },
+    { id: 'event-stream', label: 'Kafka Cluster', type: 'Infrastructure', layer: 'middleware', properties: { partitions: '64', retention: '7d' } },
+    // Infrastructure Layer
+    { id: 'order-db', label: 'Order DB (PostgreSQL)', type: 'Database', layer: 'infrastructure', properties: { size: '500GB' } },
+    { id: 'analytics-dw', label: 'Data Warehouse', type: 'Database', layer: 'infrastructure', properties: { engine: 'Snowflake', size: '20TB' } },
+    { id: 'k8s-cluster', label: 'K8s Cluster', type: 'Infrastructure', layer: 'infrastructure' }
   ],
   links: [
     { source: 'gateway-01', target: 'auth-svc', type: 'call' },

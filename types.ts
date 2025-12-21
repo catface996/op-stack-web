@@ -57,14 +57,22 @@ export interface LogMessage {
   isStreaming?: boolean;
 }
 
+export type TopologyLayer =
+  | 'scenario'       // Business Scenario Layer
+  | 'flow'           // Business Flow Layer
+  | 'application'    // Business Application Layer
+  | 'middleware'     // Middleware Layer
+  | 'infrastructure'; // Infrastructure Layer
+
 export interface TopologyNode {
   id: string;
   label: string;
   type: 'Database' | 'Service' | 'Gateway' | 'Cache' | 'Infrastructure';
+  layer?: TopologyLayer;
   x?: number;
   y?: number;
   properties?: Record<string, string>;
-  isShadow?: boolean; 
+  isShadow?: boolean;
 }
 
 export type LinkType = 'call' | 'deployment' | 'dependency' | 'inferred';

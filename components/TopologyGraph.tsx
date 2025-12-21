@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
-import { Topology, TopologyLink } from '../types';
+import { Topology, TopologyLink, TopologyLayer } from '../types';
 
 // 链接类型选项
 const LINK_TYPES = [
@@ -9,6 +9,42 @@ const LINK_TYPES = [
   { value: 'dependency', label: 'Dependency', color: '#64748b', description: '依赖关系' },
   { value: 'deployment', label: 'Deployment', color: '#334155', description: '部署关系' },
 ];
+
+// Layer configuration for 5-layer visualization
+const LAYER_CONFIG: Record<TopologyLayer, { index: number; label: string; color: string; borderColor: string }> = {
+  scenario: {
+    index: 0,
+    label: 'Business Scenario',
+    color: 'rgba(236, 72, 153, 0.08)',
+    borderColor: 'rgba(236, 72, 153, 0.3)',
+  },
+  flow: {
+    index: 1,
+    label: 'Business Flow',
+    color: 'rgba(168, 85, 247, 0.08)',
+    borderColor: 'rgba(168, 85, 247, 0.3)',
+  },
+  application: {
+    index: 2,
+    label: 'Business Application',
+    color: 'rgba(59, 130, 246, 0.08)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+  },
+  middleware: {
+    index: 3,
+    label: 'Middleware',
+    color: 'rgba(245, 158, 11, 0.08)',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  infrastructure: {
+    index: 4,
+    label: 'Infrastructure',
+    color: 'rgba(148, 163, 184, 0.08)',
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+  },
+};
+
+const LAYER_ORDER: TopologyLayer[] = ['scenario', 'flow', 'application', 'middleware', 'infrastructure'];
 
 interface LinkingState {
   sourceNodeId: string;
@@ -278,6 +314,53 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
     const treeNodes = root.descendants().filter(d => d.data.id !== '__virtual_root__');
     const treeLinks = root.links().filter(d => d.source.data.id !== '__virtual_root__');
 
+    // 8. Layer-based positioning
+    const layerHeight = 120; // Height of each layer band
+    const layerPadding = 60; // Padding at top
+
+    // Group nodes by layer
+    const layerNodeMap = new Map<TopologyLayer, any[]>();
+    LAYER_ORDER.forEach(layer => layerNodeMap.set(layer, []));
+
+    treeNodes.forEach((d: any) => {
+      const layer = (d.data.layer || 'application') as TopologyLayer;
+      layerNodeMap.get(layer)?.push(d);
+    });
+
+    // Determine which layers have nodes
+    const activeLayers = LAYER_ORDER.filter(l => (layerNodeMap.get(l)?.length || 0) > 0);
+
+    // Calculate layer Y positions
+    const layerYPositions = new Map<TopologyLayer, { top: number; center: number; bottom: number }>();
+    let currentY = layerPadding;
+    activeLayers.forEach((layer) => {
+      layerYPositions.set(layer, {
+        top: currentY,
+        center: currentY + layerHeight / 2,
+        bottom: currentY + layerHeight,
+      });
+      currentY += layerHeight;
+    });
+
+    // Position nodes within their layer bands
+    activeLayers.forEach(layer => {
+      const nodesInLayer = layerNodeMap.get(layer) || [];
+      const layerPos = layerYPositions.get(layer);
+      if (!layerPos || nodesInLayer.length === 0) return;
+
+      // Sort nodes by their original x position to maintain relative order
+      nodesInLayer.sort((a: any, b: any) => a.x - b.x);
+
+      const nodeSpacing = 180;
+      const totalWidth = (nodesInLayer.length - 1) * nodeSpacing;
+      const startX = -totalWidth / 2;
+
+      nodesInLayer.forEach((node: any, idx: number) => {
+        node.x = startX + idx * nodeSpacing;
+        node.y = layerPos.center;
+      });
+    });
+
     // 计算实际边界
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     treeNodes.forEach((d: any) => {
@@ -338,6 +421,47 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
       .append("path")
       .attr("d", "M0,-3L6,0L0,3")
       .attr("fill", "#22d3ee");
+
+    // Draw layer backgrounds
+    const layerGroup = g.append("g").attr("class", "layer-backgrounds");
+
+    // Calculate layer background width - at least 60% of viewport width
+    const layerContentWidth = maxX - minX + 400;
+    const minLayerWidth = (width / initialScale) * 0.6; // 60% of viewport
+    const layerWidth = Math.max(layerContentWidth, minLayerWidth);
+    const layerCenterX = (minX + maxX) / 2;
+    const layerStartX = layerCenterX - layerWidth / 2;
+    const labelOffset = layerStartX - 20; // Position labels to the left of layer background
+
+    activeLayers.forEach(layer => {
+      const config = LAYER_CONFIG[layer];
+      const yPos = layerYPositions.get(layer);
+      if (!yPos) return;
+
+      // Background rectangle spanning at least 60% of viewport width
+      layerGroup.append("rect")
+        .attr("x", layerStartX)
+        .attr("y", yPos.top)
+        .attr("width", layerWidth)
+        .attr("height", layerHeight)
+        .attr("fill", config.color)
+        .attr("stroke", config.borderColor)
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", "4,2")
+        .attr("rx", 4);
+
+      // Layer label on the left
+      layerGroup.append("text")
+        .attr("x", labelOffset)
+        .attr("y", yPos.center)
+        .attr("text-anchor", "end")
+        .attr("dominant-baseline", "middle")
+        .attr("fill", config.borderColor.replace('0.3', '0.95'))
+        .attr("font-size", "12px")
+        .attr("font-weight", "700")
+        .attr("letter-spacing", "0.5px")
+        .text(config.label);
+    });
 
     // 绘制连接线
     const linkGroup = g.append("g")
