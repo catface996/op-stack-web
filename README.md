@@ -1,8 +1,10 @@
-# EntropyOps - Hierarchical Multi-Agent Infrastructure Management Platform
+# EntropyOps - AI-Powered Unified Operations Platform
 
 <div align="center">
 
-**AI-Powered Infrastructure Discovery, Monitoring & Diagnosis**
+**运筹 · 运营 · 运维 一体化智能平台**
+
+**Operations Research · Business Operations · IT Operations**
 
 [![React](https://img.shields.io/badge/React-18.2.0-61DAFB?logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
@@ -16,15 +18,45 @@
 
 ## Overview
 
-EntropyOps is an advanced AI-powered infrastructure management platform that leverages a **hierarchical multi-agent collaboration system** to discover, monitor, and diagnose complex distributed systems. It provides a unified view of infrastructure resources across multiple layers - from business scenarios to infrastructure components.
+EntropyOps is a next-generation **AI-powered unified operations platform** that integrates **Operations Research (运筹)**, **Business Operations (运营)**, and **IT Operations (运维)** into a single intelligent system. By leveraging a **hierarchical multi-agent collaboration system**, EntropyOps bridges the gap between business strategy, operational execution, and technical infrastructure.
+
+Unlike traditional infrastructure monitoring tools, EntropyOps provides:
+
+- **Business-centric perspective** - Understanding how technical systems impact business outcomes
+- **Decision optimization** - AI-driven resource allocation, scheduling, and capacity planning
+- **End-to-end visibility** - From user behavior to infrastructure components across 5 architectural layers
+- **Intelligent automation** - Self-healing capabilities with human-in-the-loop oversight
+
+### Core Philosophy
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        EntropyOps                               │
+├───────────────────┬───────────────────┬─────────────────────────┤
+│   运筹 (OR)       │   运营 (Biz)      │      运维 (Ops)         │
+│   ─────────       │   ─────────       │      ─────────          │
+│   • 资源优化      │   • 业务指标      │      • 基础设施监控     │
+│   • 智能调度      │   • 用户旅程      │      • 故障诊断         │
+│   • 容量规划      │   • 转化分析      │      • 告警管理         │
+│   • 成本优化      │   • 影响评估      │      • 变更管理         │
+└───────────────────┴───────────────────┴─────────────────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │  AI Decision      │
+                    │  Engine           │
+                    │  (Multi-Agent)    │
+                    └───────────────────┘
+```
 
 ### Key Capabilities
 
-- **Hierarchical Agent Collaboration** - Multi-level agent system with Global Supervisors, Team Supervisors, and specialized Workers
-- **5-Layer Topology Visualization** - Visual representation of infrastructure across Business Scenario, Flow, Application, Middleware, and Infrastructure layers
-- **AI-Powered Discovery** - Automated infrastructure discovery from Kubernetes, Cloud, Prometheus, and distributed tracing sources
+- **Hierarchical Agent Collaboration** - Multi-level agent system with Global Supervisors, Team Supervisors, and specialized Workers for complex problem-solving
+- **5-Layer Topology Visualization** - Business Scenario → Business Flow → Application → Middleware → Infrastructure
+- **Business-Tech Correlation** - Link technical metrics to business KPIs and quantify impact
+- **AI-Powered Discovery** - Automated infrastructure discovery from Kubernetes, Cloud, Prometheus, and distributed tracing
 - **Intelligent Diagnostics** - Real-time collaborative analysis with streaming AI thought processes
-- **Report Generation** - Automated diagnostic report creation with customizable templates
+- **Decision Optimization** - Resource allocation, capacity planning, and cost optimization recommendations
+- **Report Generation** - Automated diagnostic and business impact reports with customizable templates
 
 ---
 
@@ -479,6 +511,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Built with AI-powered infrastructure intelligence**
+**Unifying Operations Research · Business Operations · IT Operations**
+
+**运筹 · 运营 · 运维 — 智能一体化**
 
 </div>
