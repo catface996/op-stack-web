@@ -315,7 +315,8 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
     const treeLinks = root.links().filter(d => d.source.data.id !== '__virtual_root__');
 
     // 8. Layer-based positioning
-    const layerHeight = 120; // Height of each layer band
+    const baseLayerHeight = 120; // Base height of each layer band
+    const minLayerHeight = 80; // Minimum layer height
     const layerPadding = 60; // Padding at top
 
     // Group nodes by layer
@@ -330,17 +331,27 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
     // Determine which layers have nodes
     const activeLayers = LAYER_ORDER.filter(l => (layerNodeMap.get(l)?.length || 0) > 0);
 
+    // Track layer heights (can be expanded during drag)
+    const layerHeights = new Map<TopologyLayer, number>();
+    activeLayers.forEach(layer => layerHeights.set(layer, baseLayerHeight));
+
     // Calculate layer Y positions
     const layerYPositions = new Map<TopologyLayer, { top: number; center: number; bottom: number }>();
-    let currentY = layerPadding;
-    activeLayers.forEach((layer) => {
-      layerYPositions.set(layer, {
-        top: currentY,
-        center: currentY + layerHeight / 2,
-        bottom: currentY + layerHeight,
+
+    const recalculateLayerPositions = () => {
+      let currentY = layerPadding;
+      activeLayers.forEach((layer) => {
+        const h = layerHeights.get(layer) || baseLayerHeight;
+        layerYPositions.set(layer, {
+          top: currentY,
+          center: currentY + h / 2,
+          bottom: currentY + h,
+        });
+        currentY += h;
       });
-      currentY += layerHeight;
-    });
+    };
+
+    recalculateLayerPositions();
 
     // Position nodes within their layer bands
     activeLayers.forEach(layer => {
@@ -436,14 +447,16 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
     activeLayers.forEach(layer => {
       const config = LAYER_CONFIG[layer];
       const yPos = layerYPositions.get(layer);
+      const h = layerHeights.get(layer) || baseLayerHeight;
       if (!yPos) return;
 
       // Background rectangle spanning at least 60% of viewport width
       layerGroup.append("rect")
+        .attr("class", `layer-bg layer-bg-${layer}`)
         .attr("x", layerStartX)
         .attr("y", yPos.top)
         .attr("width", layerWidth)
-        .attr("height", layerHeight)
+        .attr("height", h)
         .attr("fill", config.color)
         .attr("stroke", config.borderColor)
         .attr("stroke-width", 1)
@@ -452,6 +465,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
 
       // Layer label on the left
       layerGroup.append("text")
+        .attr("class", `layer-label layer-label-${layer}`)
         .attr("x", labelOffset)
         .attr("y", yPos.center)
         .attr("text-anchor", "end")
@@ -462,6 +476,302 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
         .attr("letter-spacing", "0.5px")
         .text(config.label);
     });
+
+    // Function to update layer backgrounds when heights change
+    const updateLayerBackgrounds = () => {
+      activeLayers.forEach(layer => {
+        const yPos = layerYPositions.get(layer);
+        const h = layerHeights.get(layer) || baseLayerHeight;
+        if (!yPos) return;
+
+        // Update background rectangle
+        layerGroup.select(`.layer-bg-${layer}`)
+          .attr("y", yPos.top)
+          .attr("height", h);
+
+        // Update label position
+        layerGroup.select(`.layer-label-${layer}`)
+          .attr("y", yPos.center);
+      });
+
+      // Update middle divider positions
+      for (let i = 0; i < activeLayers.length - 1; i++) {
+        const upperLayer = activeLayers[i];
+        const upperPos = layerYPositions.get(upperLayer);
+        if (upperPos) {
+          layerGroup.select(`.layer-divider-${i}`)
+            .attr("y1", upperPos.bottom)
+            .attr("y2", upperPos.bottom);
+          layerGroup.select(`.layer-divider-handle-${i}`)
+            .attr("y", upperPos.bottom - 6);
+        }
+      }
+
+      // Update top boundary divider position
+      if (activeLayers.length > 0) {
+        const topLayer = activeLayers[0];
+        const topPos = layerYPositions.get(topLayer);
+        if (topPos) {
+          layerGroup.select(`.layer-divider-top`)
+            .attr("y1", topPos.top)
+            .attr("y2", topPos.top);
+          layerGroup.select(`.layer-divider-handle-top`)
+            .attr("y", topPos.top - dividerHandleHeight / 2);
+        }
+      }
+
+      // Update bottom boundary divider position
+      if (activeLayers.length > 0) {
+        const bottomLayer = activeLayers[activeLayers.length - 1];
+        const bottomPos = layerYPositions.get(bottomLayer);
+        if (bottomPos) {
+          layerGroup.select(`.layer-divider-bottom`)
+            .attr("y1", bottomPos.bottom)
+            .attr("y2", bottomPos.bottom);
+          layerGroup.select(`.layer-divider-handle-bottom`)
+            .attr("y", bottomPos.bottom - dividerHandleHeight / 2);
+        }
+      }
+    };
+
+    // Draw draggable dividers between layers and at boundaries
+    const dividerHandleHeight = 12;
+
+    // Top boundary divider (for the topmost layer)
+    if (activeLayers.length > 0) {
+      const topLayer = activeLayers[0];
+      const topPos = layerYPositions.get(topLayer);
+      if (topPos) {
+        // Top boundary line
+        layerGroup.append("line")
+          .attr("class", "layer-divider layer-divider-top")
+          .attr("x1", layerStartX)
+          .attr("x2", layerStartX + layerWidth)
+          .attr("y1", topPos.top)
+          .attr("y2", topPos.top)
+          .attr("stroke", "rgba(100, 116, 139, 0.5)")
+          .attr("stroke-width", 2);
+
+        // Top boundary handle
+        layerGroup.append("rect")
+          .attr("class", "layer-divider-handle layer-divider-handle-top")
+          .attr("x", layerStartX)
+          .attr("y", topPos.top - dividerHandleHeight / 2)
+          .attr("width", layerWidth)
+          .attr("height", dividerHandleHeight)
+          .attr("fill", "transparent")
+          .attr("cursor", "ns-resize")
+          .call(d3.drag<SVGRectElement, unknown>()
+            .on("start", function() {
+              d3.select(this.previousSibling as Element)
+                .attr("stroke", "rgba(34, 211, 238, 0.8)")
+                .attr("stroke-width", 3);
+            })
+            .on("drag", function(event) {
+              const topLayer = activeLayers[0];
+              const topPos = layerYPositions.get(topLayer);
+
+              if (topPos) {
+                // Keep bottom fixed, adjust top
+                const fixedBottom = topPos.bottom;
+                const newTop = event.y;
+                const newHeight = fixedBottom - newTop;
+
+                if (newHeight >= minLayerHeight) {
+                  // Update just the top layer's position and height
+                  layerHeights.set(topLayer, newHeight);
+                  layerYPositions.set(topLayer, {
+                    top: newTop,
+                    center: newTop + newHeight / 2,
+                    bottom: fixedBottom
+                  });
+                  updateLayerBackgrounds();
+
+                  // Adjust nodes in the top layer only
+                  treeNodes.forEach((d: any) => {
+                    const nodeLayer = (d.data.layer || 'application') as TopologyLayer;
+                    if (nodeLayer === topLayer) {
+                      const layerPos = layerYPositions.get(nodeLayer);
+                      if (layerPos) {
+                        const halfNodeHeight = rectHeight / 2;
+                        const padding = 10;
+                        const minY = layerPos.top + halfNodeHeight + padding;
+                        const maxY = layerPos.bottom - halfNodeHeight - padding;
+                        if (d.y < minY) d.y = minY;
+                        if (d.y > maxY) d.y = maxY;
+                      }
+                    }
+                  });
+                  nodeSelectionRef.current?.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
+                  updateLinks();
+                }
+              }
+            })
+            .on("end", function() {
+              d3.select(this.previousSibling as Element)
+                .attr("stroke", "rgba(100, 116, 139, 0.5)")
+                .attr("stroke-width", 2);
+            })
+          );
+      }
+    }
+
+    // Bottom boundary divider (for the bottommost layer)
+    if (activeLayers.length > 0) {
+      const bottomLayer = activeLayers[activeLayers.length - 1];
+      const bottomPos = layerYPositions.get(bottomLayer);
+      if (bottomPos) {
+        // Bottom boundary line
+        layerGroup.append("line")
+          .attr("class", "layer-divider layer-divider-bottom")
+          .attr("x1", layerStartX)
+          .attr("x2", layerStartX + layerWidth)
+          .attr("y1", bottomPos.bottom)
+          .attr("y2", bottomPos.bottom)
+          .attr("stroke", "rgba(100, 116, 139, 0.5)")
+          .attr("stroke-width", 2);
+
+        // Bottom boundary handle
+        layerGroup.append("rect")
+          .attr("class", "layer-divider-handle layer-divider-handle-bottom")
+          .attr("x", layerStartX)
+          .attr("y", bottomPos.bottom - dividerHandleHeight / 2)
+          .attr("width", layerWidth)
+          .attr("height", dividerHandleHeight)
+          .attr("fill", "transparent")
+          .attr("cursor", "ns-resize")
+          .call(d3.drag<SVGRectElement, unknown>()
+            .on("start", function() {
+              d3.select(this.previousSibling as Element)
+                .attr("stroke", "rgba(34, 211, 238, 0.8)")
+                .attr("stroke-width", 3);
+            })
+            .on("drag", function(event) {
+              const bottomLayer = activeLayers[activeLayers.length - 1];
+              const bottomPos = layerYPositions.get(bottomLayer);
+
+              if (bottomPos) {
+                // Keep top fixed, adjust bottom
+                const fixedTop = bottomPos.top;
+                const newBottom = event.y;
+                const newHeight = newBottom - fixedTop;
+
+                if (newHeight >= minLayerHeight) {
+                  // Update just the bottom layer's position and height
+                  layerHeights.set(bottomLayer, newHeight);
+                  layerYPositions.set(bottomLayer, {
+                    top: fixedTop,
+                    center: fixedTop + newHeight / 2,
+                    bottom: newBottom
+                  });
+                  updateLayerBackgrounds();
+
+                  // Adjust nodes in the bottom layer only
+                  treeNodes.forEach((d: any) => {
+                    const nodeLayer = (d.data.layer || 'application') as TopologyLayer;
+                    if (nodeLayer === bottomLayer) {
+                      const layerPos = layerYPositions.get(nodeLayer);
+                      if (layerPos) {
+                        const halfNodeHeight = rectHeight / 2;
+                        const padding = 10;
+                        const minY = layerPos.top + halfNodeHeight + padding;
+                        const maxY = layerPos.bottom - halfNodeHeight - padding;
+                        if (d.y < minY) d.y = minY;
+                        if (d.y > maxY) d.y = maxY;
+                      }
+                    }
+                  });
+                  nodeSelectionRef.current?.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
+                  updateLinks();
+                }
+              }
+            })
+            .on("end", function() {
+              d3.select(this.previousSibling as Element)
+                .attr("stroke", "rgba(100, 116, 139, 0.5)")
+                .attr("stroke-width", 2);
+            })
+          );
+      }
+    }
+
+    // Middle dividers between layers
+    for (let i = 0; i < activeLayers.length - 1; i++) {
+      const upperLayer = activeLayers[i];
+      const upperPos = layerYPositions.get(upperLayer);
+      if (!upperPos) continue;
+
+      // Divider line
+      layerGroup.append("line")
+        .attr("class", `layer-divider layer-divider-${i}`)
+        .attr("x1", layerStartX)
+        .attr("x2", layerStartX + layerWidth)
+        .attr("y1", upperPos.bottom)
+        .attr("y2", upperPos.bottom)
+        .attr("stroke", "rgba(100, 116, 139, 0.5)")
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", "none");
+
+      // Draggable handle (invisible but larger hit area)
+      const dividerIndex = i;
+      layerGroup.append("rect")
+        .attr("class", `layer-divider-handle layer-divider-handle-${i}`)
+        .attr("x", layerStartX)
+        .attr("y", upperPos.bottom - dividerHandleHeight / 2)
+        .attr("width", layerWidth)
+        .attr("height", dividerHandleHeight)
+        .attr("fill", "transparent")
+        .attr("cursor", "ns-resize")
+        .call(d3.drag<SVGRectElement, unknown>()
+          .on("start", function() {
+            d3.select(this.previousSibling as Element)
+              .attr("stroke", "rgba(34, 211, 238, 0.8)")
+              .attr("stroke-width", 3);
+          })
+          .on("drag", function(event) {
+            const upperLayer = activeLayers[dividerIndex];
+            const upperPos = layerYPositions.get(upperLayer);
+
+            if (upperPos) {
+              // Calculate new height based on drag position
+              const newBottom = event.y;
+              const newHeight = newBottom - upperPos.top;
+
+              // Enforce minimum height
+              if (newHeight >= minLayerHeight) {
+                layerHeights.set(upperLayer, newHeight);
+                recalculateLayerPositions();
+                updateLayerBackgrounds();
+
+                // Adjust nodes to stay within their layer bounds
+                treeNodes.forEach((d: any) => {
+                  const nodeLayer = (d.data.layer || 'application') as TopologyLayer;
+                  const layerPos = layerYPositions.get(nodeLayer);
+                  if (layerPos) {
+                    const halfNodeHeight = rectHeight / 2;
+                    const padding = 10;
+                    const minY = layerPos.top + halfNodeHeight + padding;
+                    const maxY = layerPos.bottom - halfNodeHeight - padding;
+
+                    // Clamp node Y position within layer bounds
+                    if (d.y < minY) d.y = minY;
+                    if (d.y > maxY) d.y = maxY;
+                  }
+                });
+
+                // Update node positions in DOM
+                nodeSelectionRef.current?.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
+                updateLinks();
+              }
+            }
+          })
+          .on("end", function() {
+            d3.select(this.previousSibling as Element)
+              .attr("stroke", "rgba(100, 116, 139, 0.5)")
+              .attr("stroke-width", 2);
+          })
+        );
+    }
 
     // 绘制连接线
     const linkGroup = g.append("g")
@@ -618,7 +928,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
         });
     };
 
-    // 拖拽行为
+    // 拖拽行为 - 限制在所属 Layer 内（X和Y轴都限制）
     const drag = d3.drag<SVGGElement, any>()
       .filter(event => {
         // 排除端口点击，避免拖拽干扰链接操作
@@ -628,8 +938,28 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
         d3.select(this).raise().classed("dragging", true);
       })
       .on("drag", function(event, d) {
-        d.x = event.x;
-        d.y = event.y;
+        // 获取节点所属的 Layer
+        const nodeLayer = (d.data.layer || 'application') as TopologyLayer;
+        const layerPos = layerYPositions.get(nodeLayer);
+
+        const halfNodeWidth = rectWidth / 2;
+        const halfNodeHeight = rectHeight / 2;
+        const padding = 10;
+
+        // X 坐标限制在 Layer 范围内
+        const minX = layerStartX + halfNodeWidth + padding;
+        const maxX = layerStartX + layerWidth - halfNodeWidth - padding;
+        d.x = Math.max(minX, Math.min(maxX, event.x));
+
+        // Y 坐标限制在 Layer 范围内
+        if (layerPos) {
+          const minY = layerPos.top + halfNodeHeight + padding;
+          const maxY = layerPos.bottom - halfNodeHeight - padding;
+          d.y = Math.max(minY, Math.min(maxY, event.y));
+        } else {
+          d.y = event.y;
+        }
+
         d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
         updateLinks();
       })
