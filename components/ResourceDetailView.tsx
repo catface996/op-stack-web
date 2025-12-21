@@ -2,8 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TopologyNode, Team, TopologyGroup, Agent, AgentRole, AgentStatus, AgentConfig, DiagnosisSession } from '../types';
 import { AgentConfigModal } from './AgentConfigModal';
-import { 
-  ChevronLeft, 
+import {
+  ArrowLeft,
   ChevronRight,
   Server, 
   Database, 
@@ -246,11 +246,11 @@ const ResourceDetailView: React.FC<ResourceDetailViewProps> = ({
       {/* Header */}
       <div className="h-16 border-b border-slate-800 bg-slate-900 px-6 flex items-center justify-between shrink-0">
          <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={onBack}
-              className="p-2 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all"
             >
-              <ChevronLeft size={24} />
+              <ArrowLeft size={20} />
             </button>
             <div className="flex items-center gap-3">
                <div className="p-2 bg-slate-800 rounded-lg border border-slate-700">

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { TopologyGroup, Topology, TopologyNode } from '../types';
 import TopologyGraph from './TopologyGraph';
-import { ChevronLeft, Plus, X, Trash2, Database, Shield, Server, Activity, Settings, Stethoscope, Zap, Play, Search } from 'lucide-react';
+import { ArrowLeft, Plus, X, Trash2, Database, Shield, Server, Activity, Settings, Stethoscope, Zap, Play, Search } from 'lucide-react';
 
 interface SubGraphCanvasProps {
   topologyGroup: TopologyGroup;
@@ -90,11 +90,11 @@ const SubGraphCanvas: React.FC<SubGraphCanvasProps> = ({
       {/* Header */}
       <div className="h-14 border-b border-slate-800 bg-slate-900 px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={onBack}
-            className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all"
           >
-            <ChevronLeft size={20} />
+            <ArrowLeft size={20} />
           </button>
           <div>
             <h2 className="text-sm font-bold text-white flex items-center gap-2">

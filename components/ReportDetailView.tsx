@@ -304,7 +304,7 @@ const ReportDetailView: React.FC<ReportDetailViewProps> = ({ report, onBack }) =
            <div className="flex items-center gap-4">
               <button
                 onClick={onBack}
-                className="p-2 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all"
                 title="Back"
               >
                 <ArrowLeft size={20} />

@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { TopologyNode, TopologyLink, DiscoverySource, LogMessage } from '../types';
 import TopologyGraph from './TopologyGraph';
-import { Radar, Send, ChevronLeft, Zap, CheckCircle, XCircle, Database, Server, Shield, Activity, Sparkles } from 'lucide-react';
+import { Radar, Send, ArrowLeft, Zap, CheckCircle, XCircle, Database, Server, Shield, Activity, Sparkles } from 'lucide-react';
 
 interface ScannerViewProps {
   source: DiscoverySource;
@@ -105,9 +105,9 @@ const ScannerView: React.FC<ScannerViewProps> = ({
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all"
           >
-            <ChevronLeft size={20} />
+            <ArrowLeft size={20} />
           </button>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-cyan-950/40 border border-cyan-500/30 rounded-lg">
