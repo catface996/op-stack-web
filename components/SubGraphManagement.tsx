@@ -118,11 +118,11 @@ const SubGraphManagement: React.FC<TopologyManagementProps> = ({
           <h2 className="text-2xl font-bold text-white tracking-tight">Topology Management</h2>
           <p className="text-slate-400 text-sm mt-1">Organize and manage infrastructure clusters and sub-systems.</p>
         </div>
-        <button 
+        <button
           onClick={openAddModal}
           className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors shadow-lg shadow-cyan-900/20 font-medium text-sm"
         >
-          <Plus size={16} /> Create Topology
+          <Plus size={16} /> Create topology
         </button>
       </div>
 
@@ -444,7 +444,7 @@ const TopologyFormModal: React.FC<{
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/50 rounded-t-xl">
-          <h3 className="font-bold text-white">{tg ? 'Edit Topology' : 'Create Topology'}</h3>
+          <h3 className="font-bold text-white">{tg ? 'Edit topology' : 'Create topology'}</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">

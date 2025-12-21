@@ -121,11 +121,11 @@ const TopologiesManagement: React.FC<TopologiesManagementProps> = ({
           </h2>
           <p className="text-slate-400 text-xs mt-1 font-medium">Define and oversee logical cluster boundaries and operation sectors.</p>
         </div>
-        <button 
+        <button
           onClick={openAddModal}
-          className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-all shadow-lg shadow-cyan-900/20 font-bold text-xs uppercase tracking-widest"
+          className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-all shadow-lg shadow-cyan-900/20 font-bold text-xs tracking-widest"
         >
-          <Plus size={14} /> Create Topology
+          <Plus size={14} /> Create topology
         </button>
       </div>
 
