@@ -7,6 +7,22 @@ export const INITIAL_DISCOVERY_SOURCES: DiscoverySource[] = [
   { id: 'src-aws-us-east', name: 'AWS us-east-1 (FinOps)', type: 'Cloud', endpoint: 'arn:aws:iam::12345678:role/OpsBot', status: 'Connected' }
 ];
 
+// 初始发现的节点和链接（模拟 AI 扫描后发现的新资源）
+export const INITIAL_DISCOVERED_DELTA = {
+  nodes: [
+    { id: 'billing-svc', label: 'Billing Service', type: 'Service', properties: { replicas: '3', version: 'v2.1.0', namespace: 'finance' } },
+    { id: 'notification-svc', label: 'Notification Hub', type: 'Service', properties: { replicas: '2', channels: 'email,sms,push' } },
+    { id: 'audit-log-db', label: 'Audit Log Store', type: 'Database', properties: { engine: 'MongoDB', size: '120GB' } },
+    { id: 'config-server', label: 'Config Server', type: 'Service', properties: { provider: 'Spring Cloud Config', version: 'v3.0' } },
+  ],
+  links: [
+    { source: 'payment-svc', target: 'billing-svc', type: 'inferred', confidence: 0.92 },
+    { source: 'billing-svc', target: 'notification-svc', type: 'inferred', confidence: 0.78 },
+    { source: 'auth-svc', target: 'audit-log-db', type: 'inferred', confidence: 0.85 },
+    { source: 'gateway-01', target: 'config-server', type: 'inferred', confidence: 0.88 },
+  ]
+};
+
 export const RAW_SCAN_PAYLOADS = {
   k8s: `
 apiVersion: v1

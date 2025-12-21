@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { 
-  INITIAL_TOPOLOGY, 
-  generateTeamForNode, 
+import {
+  INITIAL_TOPOLOGY,
+  generateTeamForNode,
   GLOBAL_SUPERVISOR,
   INITIAL_TOPOLOGY_GROUPS,
   INITIAL_PROMPT_TEMPLATES,
@@ -12,6 +12,7 @@ import {
   INITIAL_SESSIONS,
   INITIAL_REPORT_TEMPLATES,
   INITIAL_DISCOVERY_SOURCES,
+  INITIAL_DISCOVERED_DELTA,
   RAW_SCAN_PAYLOADS
 } from './services/mockData';
 import { 
@@ -126,7 +127,7 @@ const App: React.FC = () => {
   const [topologyGroups, setTopologyGroups] = useState<TopologyGroup[]>(INITIAL_TOPOLOGY_GROUPS);
   const [reports, setReports] = useState<Report[]>(INITIAL_REPORTS);
   const [discoverySources, setDiscoverySources] = useState<DiscoverySource[]>(INITIAL_DISCOVERY_SOURCES);
-  const [discoveredDelta, setDiscoveredDelta] = useState<{nodes: TopologyNode[], links: TopologyLink[]}>({ nodes: [], links: [] });
+  const [discoveredDelta, setDiscoveredDelta] = useState<{nodes: TopologyNode[], links: TopologyLink[]}>(INITIAL_DISCOVERED_DELTA);
 
   const [globalAgent, setGlobalAgent] = useState<Agent>(GLOBAL_SUPERVISOR);
   const [logs, setLogs] = useState<LogMessage[]>([]);
