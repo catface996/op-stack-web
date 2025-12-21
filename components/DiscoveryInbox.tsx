@@ -217,33 +217,35 @@ const DiscoveryInbox: React.FC<DiscoveryInboxProps> = ({ discoveredNodes, discov
                     return (
                       <div
                         key={idx}
-                        className="relative bg-slate-900/50 border border-dashed border-purple-500/20 rounded-xl transition-all flex flex-col min-h-[140px] overflow-hidden hover:border-purple-500/40"
+                        className="relative bg-slate-900 border border-purple-500/30 rounded-xl transition-all flex flex-col min-h-[180px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-purple-950/10 hover:border-purple-500/50"
                       >
+                        <div className="h-1 w-full bg-purple-500 opacity-30"></div>
                         <div className="p-5 flex flex-col flex-1">
                           <div className="flex justify-between items-start mb-4">
-                            <div className="p-2 bg-slate-950 rounded-lg text-purple-400 opacity-60">
-                              <Network size={20} />
+                            <div className="p-2 bg-purple-950/30 border border-purple-500/20 rounded-lg">
+                              <Network size={20} className="text-purple-400" />
                             </div>
-                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-black uppercase border border-slate-700">
-                              {(link.confidence! * 100).toFixed(0)}% Conf
+                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-purple-900/50 text-purple-300 font-black uppercase border border-purple-500/30">
+                              New
                             </span>
                           </div>
 
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-xs font-bold text-slate-300 truncate">{sourceId}</span>
-                              <ArrowRight size={12} className="text-purple-400 shrink-0" />
-                              <span className="text-xs font-bold text-slate-300 truncate">{targetId}</span>
+                          <div className="mb-4 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-base font-bold text-white truncate">{sourceId}</span>
+                              <ArrowRight size={14} className="text-purple-400 shrink-0" />
+                              <span className="text-base font-bold text-white truncate">{targetId}</span>
                             </div>
-                            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Inferred Traffic</div>
+                            <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">CONFIDENCE: {(link.confidence! * 100).toFixed(0)}%</div>
+                            <div className="text-[9px] text-slate-600 font-mono mt-1">Inferred Traffic</div>
                           </div>
 
-                          <div className="pt-4 border-t border-slate-800/40 flex items-center justify-end gap-2 shrink-0">
-                            <button className="p-1.5 hover:bg-red-950/50 rounded-lg text-slate-500 hover:text-red-400 transition-all">
-                              <X size={16} />
+                          <div className="pt-4 border-t border-slate-800/40 flex items-center justify-between shrink-0">
+                            <button className="p-1.5 hover:bg-red-950/50 rounded-lg text-slate-500 hover:text-red-400 transition-all" title="Reject">
+                              <X size={18} />
                             </button>
-                            <button className="p-1.5 hover:bg-green-950/50 rounded-lg text-slate-500 hover:text-green-400 transition-all">
-                              <Check size={16} />
+                            <button className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-purple-900/20 flex items-center gap-1.5">
+                              <Check size={12} /> Approve
                             </button>
                           </div>
                         </div>
@@ -360,8 +362,8 @@ const DiscoveryInbox: React.FC<DiscoveryInboxProps> = ({ discoveredNodes, discov
                                 <button className="p-2 hover:bg-red-950/50 rounded-lg text-slate-500 hover:text-red-400 transition-all">
                                   <X size={16} />
                                 </button>
-                                <button className="p-2 hover:bg-green-950/50 rounded-lg text-slate-500 hover:text-green-400 transition-all">
-                                  <Check size={16} />
+                                <button className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5">
+                                  <Check size={12} /> Approve
                                 </button>
                               </div>
                             </td>
