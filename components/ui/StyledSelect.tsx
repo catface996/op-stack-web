@@ -17,6 +17,7 @@ interface StyledSelectProps {
   searchable?: boolean;
   searchPlaceholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 const StyledSelect: React.FC<StyledSelectProps> = ({
@@ -26,7 +27,8 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
   placeholder = 'Select an option...',
   searchable = false,
   searchPlaceholder = 'Search...',
-  className = ''
+  className = '',
+  disabled = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('');
@@ -62,8 +64,8 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full bg-slate-950 border rounded-lg p-2.5 flex items-center justify-between cursor-pointer transition-all ${isOpen ? 'border-cyan-500 ring-1 ring-cyan-500/20' : 'border-slate-700 hover:border-slate-600'}`}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`w-full bg-slate-950 border rounded-lg p-2.5 flex items-center justify-between transition-all ${disabled ? 'cursor-not-allowed opacity-50 border-slate-800' : 'cursor-pointer'} ${!disabled && isOpen ? 'border-cyan-500 ring-1 ring-cyan-500/20' : !disabled ? 'border-slate-700 hover:border-slate-600' : ''}`}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {selectedOption ? (

@@ -3,11 +3,11 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { Topology, TopologyLink, TopologyLayer } from '../types';
 
-// 链接类型选项
+// Link type options
 const LINK_TYPES = [
-  { value: 'call', label: 'API Call', color: '#0891b2', description: '服务间 API 调用' },
-  { value: 'dependency', label: 'Dependency', color: '#64748b', description: '依赖关系' },
-  { value: 'deployment', label: 'Deployment', color: '#334155', description: '部署关系' },
+  { value: 'call', label: 'API Call', color: '#0891b2', description: 'Service-to-service API calls' },
+  { value: 'dependency', label: 'Dependency', color: '#64748b', description: 'Dependency relationship' },
+  { value: 'deployment', label: 'Deployment', color: '#334155', description: 'Deployment relationship' },
 ];
 
 // Layer configuration for 5-layer visualization
@@ -157,11 +157,11 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
         target: pendingLink.target,
         type: linkType
       });
-      // 显示成功消息
+      // Show success message
       const sourceName = data.nodes.find(n => n.id === pendingLink.source)?.label || pendingLink.source;
       const targetName = data.nodes.find(n => n.id === pendingLink.target)?.label || pendingLink.target;
       const linkLabel = LINK_TYPES.find(l => l.value === linkType)?.label || linkType;
-      setLinkCreatedMessage(`已创建 ${linkLabel} 链接: ${sourceName} → ${targetName}`);
+      setLinkCreatedMessage(`Created ${linkLabel} link: ${sourceName} → ${targetName}`);
       setTimeout(() => setLinkCreatedMessage(null), 3000);
     }
     setPendingLink(null);
@@ -1469,23 +1469,23 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
         </div>
       )}
 
-      {/* 链接模式指示器 */}
+      {/* Linking mode indicator */}
       {linkingState && (
         <div className="absolute top-2 left-2 z-20 px-4 py-2 bg-cyan-500/20 border border-cyan-500/50 rounded-lg backdrop-blur">
           <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold">
             <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-            <span>链接模式: 从 "{getNodeName(linkingState.sourceNodeId)}" 开始</span>
+            <span>Linking mode: Starting from "{getNodeName(linkingState.sourceNodeId)}"</span>
             <button
               onClick={(e) => { e.stopPropagation(); cancelLinking(); }}
               className="ml-2 text-cyan-300 hover:text-white"
             >
-              取消
+              Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* 链接创建成功提示 */}
+      {/* Link created success message */}
       {linkCreatedMessage && (
         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 px-4 py-2 bg-green-500/20 border border-green-500/50 rounded-lg backdrop-blur animate-pulse">
           <div className="flex items-center gap-2 text-green-400 text-xs font-bold">
@@ -1499,13 +1499,13 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
 
       <svg ref={svgRef} className="w-full h-full" />
 
-      {/* 链接类型选择弹窗 */}
+      {/* Link type selection modal */}
       {showLinkTypeModal && pendingLink && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={cancelLinking}>
           <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-2xl w-80" onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-lg mb-2">选择链接类型</h3>
+            <h3 className="text-white font-bold text-lg mb-2">Select Link Type</h3>
             <p className="text-slate-400 text-sm mb-4">
-              从 <span className="text-cyan-400">{getNodeName(pendingLink.source)}</span> 到 <span className="text-cyan-400">{getNodeName(pendingLink.target)}</span>
+              From <span className="text-cyan-400">{getNodeName(pendingLink.source)}</span> to <span className="text-cyan-400">{getNodeName(pendingLink.target)}</span>
             </p>
             <div className="space-y-2">
               {LINK_TYPES.map(linkType => (
@@ -1526,7 +1526,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
               onClick={cancelLinking}
               className="w-full mt-4 py-2 text-slate-400 hover:text-white text-sm transition-colors"
             >
-              取消
+              Cancel
             </button>
           </div>
         </div>

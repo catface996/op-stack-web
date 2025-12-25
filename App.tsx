@@ -48,6 +48,7 @@ import TopologiesManagement from './components/TopologiesManagement';
 import SubGraphCanvas from './components/SubGraphCanvas';
 import Dashboard from './components/Dashboard';
 import ResourceDetailView from './components/ResourceDetailView';
+import ApiResourceDetailView from './components/ApiResourceDetailView';
 import AgentManagement from './components/AgentManagement';
 import ReportManagement from './components/ReportManagement';
 import ReportDetailView from './components/ReportDetailView';
@@ -118,12 +119,13 @@ const App: React.FC = () => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   }, []);
 
-  // 核心视图切换
-  const [currentView, setCurrentView] = useState<'dashboard' | 'diagnosis' | 'resources' | 'resource-detail' | 'topologies' | 'topology-detail' | 'agents' | 'prompts' | 'models' | 'tools' | 'reports' | 'report-detail' | 'report-templates' | 'discovery' | 'scanner'>('dashboard');
+  // Core view switching
+  const [currentView, setCurrentView] = useState<'dashboard' | 'diagnosis' | 'resources' | 'resource-detail' | 'api-resource-detail' | 'topologies' | 'topology-detail' | 'agents' | 'prompts' | 'models' | 'tools' | 'reports' | 'report-detail' | 'report-templates' | 'discovery' | 'scanner'>('dashboard');
   const [discoverySubView, setDiscoverySubView] = useState<'connectors' | 'inbox'>('connectors');
 
   const [selectedTopologyId, setSelectedTopologyId] = useState<string | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
+  const [selectedApiResourceId, setSelectedApiResourceId] = useState<number | null>(null);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [diagnosisScope, setDiagnosisScope] = useState<TopologyGroup | null>(null);
@@ -644,7 +646,9 @@ const App: React.FC = () => {
         const activeTg = topologyGroups.find(tg => tg.id === selectedTopologyId);
         return activeTg ? <SubGraphCanvas topologyGroup={activeTg} globalTopology={topology} activeScopeId={diagnosisScope?.id} isSimulating={isSimulating} onBack={() => setCurrentView('topologies')} onDiagnose={() => { setDiagnosisScope(activeTg); setCurrentView('diagnosis'); }} onNavigateToDiagnosis={() => setCurrentView('diagnosis')} onAddNode={(nid) => setTopologyGroups(p => p.map(g => g.id === selectedTopologyId ? {...g, nodeIds: [...g.nodeIds, nid]} : g))} onRemoveNode={(nid) => setTopologyGroups(p => p.map(g => g.id === selectedTopologyId ? {...g, nodeIds: g.nodeIds.filter(i => i !== nid)} : g))} onViewResource={(n) => { setSelectedResourceId(n.id); setCurrentView('resource-detail'); }} onCreateLink={handleCreateLink} /> : null;
       case 'resources':
-        return <ResourceManagement nodes={topology.nodes} onAdd={(n) => setTopology(prev => ({...prev, nodes: [...prev.nodes, n]}))} onUpdate={(n) => setTopology(prev => ({...prev, nodes: prev.nodes.map(x => x.id === n.id ? n : x)}))} onDelete={(id) => setTopology(prev => ({...prev, nodes: prev.nodes.filter(x => x.id !== id)}))} onViewDetail={(n) => { setSelectedResourceId(n.id); setCurrentView('resource-detail'); }} />;
+        return <ResourceManagement onViewDetail={(resource) => { setSelectedApiResourceId(resource.id); setCurrentView('api-resource-detail'); }} />;
+      case 'api-resource-detail':
+        return selectedApiResourceId ? <ApiResourceDetailView resourceId={selectedApiResourceId} onBack={() => setCurrentView('resources')} /> : null;
       case 'resource-detail':
         const rNode = topology.nodes.find(n => n.id === selectedResourceId);
         const handleAddWorker = (teamId: string, workerTemplate: { name: string, specialty: string }) => {
@@ -843,7 +847,7 @@ const App: React.FC = () => {
               </div>
             )}
             <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-slate-400 hover:text-white transition-colors"><Settings size={18} /></button>
-            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-400 transition-colors" title="退出登录"><LogOut size={18} /></button>
+            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-400 transition-colors" title="Logout"><LogOut size={18} /></button>
         </div>
       </header>
       <main className="flex-1 overflow-hidden relative">{renderMainContent()}</main>
