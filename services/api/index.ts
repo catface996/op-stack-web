@@ -1,8 +1,10 @@
 /**
  * API Services Index
  * Feature: 001-resource-api-integration
+ * Feature: 002-topology-api
  */
 
 export * from './types';
 export * from './client';
 export * from './resources';
+export * from './topology';

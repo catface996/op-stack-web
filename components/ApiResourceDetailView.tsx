@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft,
   Server,
@@ -28,6 +28,7 @@ import { useResourceTypes } from '../services/hooks/useResourceTypes';
 import { ApiError } from '../services/api/client';
 import type { ResourceDTO, ResourceStatus, UpdateResourceRequest } from '../services/api/types';
 import StyledSelect from './ui/StyledSelect';
+import TopologyGraph from './TopologyGraph';
 
 interface ApiResourceDetailViewProps {
   resourceId: number;
@@ -76,6 +77,14 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
   useEffect(() => {
     fetchResource();
   }, [resourceId]);
+
+  // Handle navigation to a subgraph's topology view
+  // NOTE: This hook MUST be before any early returns to follow React's rules of hooks
+  const handleNavigateToSubgraph = useCallback((subgraphId: number) => {
+    // Navigate to subgraph resource detail - for now just log, can be enhanced
+    console.log('Navigate to subgraph:', subgraphId);
+    // Could trigger navigation to that resource's detail page
+  }, []);
 
   if (loading) {
     return (
@@ -331,21 +340,49 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
     </div>
   );
 
-  const renderTopologiesTab = () => (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-sm font-bold text-white">Associated Topologies</h3>
-        <button className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-xs font-bold text-white transition-all">
-          <Plus size={14} /> Link Topology
-        </button>
+  // Check if resource is a subgraph (has isSubgraph attribute or resourceTypeCode contains 'subgraph')
+  // TODO: Adjust this logic based on actual backend data structure
+  const isSubgraph = resource.attributes
+    ? JSON.parse(resource.attributes)?.isSubgraph === true
+    : false;
+
+  // For testing: Always show topology graph to verify API calls
+  // Remove this line after testing
+  const showTopologyGraph = true; // isSubgraph;
+
+  const renderTopologiesTab = () => {
+    // If this resource is a subgraph (or testing mode), show the topology graph
+    if (showTopologyGraph) {
+      return (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
+          <TopologyGraph
+            resourceId={resource.id}
+            onNodeClick={(nodeId) => console.log('Node clicked:', nodeId)}
+            onNodeDoubleClick={(nodeId) => console.log('Node double-clicked:', nodeId)}
+            onNavigateToSubgraph={handleNavigateToSubgraph}
+            showLegend={true}
+          />
+        </div>
+      );
+    }
+
+    // Non-subgraph resources show the original topology linking UI
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-sm font-bold text-white">Associated Topologies</h3>
+          <button className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-xs font-bold text-white transition-all">
+            <Plus size={14} /> Link Topology
+          </button>
+        </div>
+        <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+          <Network size={48} className="opacity-20 mb-4" />
+          <p className="text-sm font-medium">No topologies linked</p>
+          <p className="text-xs text-slate-600 mt-1">Link this resource to topology groups for better visibility</p>
+        </div>
       </div>
-      <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-        <Network size={48} className="opacity-20 mb-4" />
-        <p className="text-sm font-medium">No topologies linked</p>
-        <p className="text-xs text-slate-600 mt-1">Link this resource to topology groups for better visibility</p>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const renderAgentsTab = () => (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">

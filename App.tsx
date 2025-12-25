@@ -46,6 +46,7 @@ import LogStream from './components/LogStream';
 import ResourceManagement from './components/ResourceManagement';
 import TopologiesManagement from './components/TopologiesManagement';
 import SubGraphCanvas from './components/SubGraphCanvas';
+import { TopologyDetailView } from './components/topology';
 import Dashboard from './components/Dashboard';
 import ResourceDetailView from './components/ResourceDetailView';
 import ApiResourceDetailView from './components/ApiResourceDetailView';
@@ -641,8 +642,23 @@ const App: React.FC = () => {
       case 'dashboard':
         return <Dashboard nodes={topology.nodes} teams={teams} recentSessions={INITIAL_SESSIONS} isSimulating={isSimulating} onNavigateToDiagnosis={() => setCurrentView('diagnosis')} onLoadSession={(s) => { setCurrentView('diagnosis'); setUserQuery(s.query); }} />;
       case 'topologies':
-        return <TopologiesManagement topologyGroups={topologyGroups} activeScopeId={diagnosisScope?.id} isSimulating={isSimulating} onAdd={(tg) => setTopologyGroups(p => [...p, tg])} onUpdate={(u) => setTopologyGroups(p => p.map(g => g.id === u.id ? u : g))} onDelete={(id) => setTopologyGroups(p => p.filter(g => g.id !== id))} onEnter={(id) => { setSelectedTopologyId(id); setCurrentView('topology-detail'); }} onNavigateToDiagnosis={() => setCurrentView('diagnosis')} />;
+        return <TopologiesManagement activeScopeId={diagnosisScope?.id} isSimulating={isSimulating} onEnter={(id) => { setSelectedTopologyId(id); setCurrentView('topology-detail'); }} onNavigateToDiagnosis={() => setCurrentView('diagnosis')} />;
       case 'topology-detail':
+        // Try to use API-based detail view if selectedTopologyId is a numeric string
+        const topologyIdNum = selectedTopologyId ? parseInt(selectedTopologyId, 10) : NaN;
+        if (!isNaN(topologyIdNum)) {
+          return (
+            <TopologyDetailView
+              topologyId={topologyIdNum}
+              onBack={() => setCurrentView('topologies')}
+              onViewResource={(resourceId) => {
+                setSelectedApiResourceId(resourceId);
+                setCurrentView('api-resource-detail');
+              }}
+            />
+          );
+        }
+        // Fallback to legacy SubGraphCanvas for non-numeric IDs (mock data)
         const activeTg = topologyGroups.find(tg => tg.id === selectedTopologyId);
         return activeTg ? <SubGraphCanvas topologyGroup={activeTg} globalTopology={topology} activeScopeId={diagnosisScope?.id} isSimulating={isSimulating} onBack={() => setCurrentView('topologies')} onDiagnose={() => { setDiagnosisScope(activeTg); setCurrentView('diagnosis'); }} onNavigateToDiagnosis={() => setCurrentView('diagnosis')} onAddNode={(nid) => setTopologyGroups(p => p.map(g => g.id === selectedTopologyId ? {...g, nodeIds: [...g.nodeIds, nid]} : g))} onRemoveNode={(nid) => setTopologyGroups(p => p.map(g => g.id === selectedTopologyId ? {...g, nodeIds: g.nodeIds.filter(i => i !== nid)} : g))} onViewResource={(n) => { setSelectedResourceId(n.id); setCurrentView('resource-detail'); }} onCreateLink={handleCreateLink} /> : null;
       case 'resources':

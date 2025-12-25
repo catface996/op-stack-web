@@ -2,6 +2,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { Topology, TopologyLink, TopologyLayer } from '../types';
+import { useTopology } from '../services/hooks/useTopology';
+import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 // Link type options
 const LINK_TYPES = [
@@ -52,12 +54,17 @@ interface LinkingState {
 }
 
 interface TopologyGraphProps {
-  data: Topology;
-  activeNodeIds: Set<string>;
-  onNodeClick: (nodeId: string) => void;
+  /** Static data - used when resourceId is not provided */
+  data?: Topology;
+  /** Resource ID for API-based data fetching */
+  resourceId?: number;
+  activeNodeIds?: Set<string>;
+  onNodeClick?: (nodeId: string) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
   onCreateLink?: (link: { source: string; target: string; type: string }) => void;
   showLegend?: boolean;
+  /** Callback when navigating to a subgraph */
+  onNavigateToSubgraph?: (subgraphId: number) => void;
 }
 
 // Layout cache interface
@@ -104,7 +111,16 @@ const loadLayoutCache = (cacheKey: string): LayoutCache | null => {
   return null;
 };
 
-const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNodeClick, onNodeDoubleClick, onCreateLink, showLegend = true }) => {
+const TopologyGraph: React.FC<TopologyGraphProps> = ({
+  data: staticData,
+  resourceId,
+  activeNodeIds = new Set(),
+  onNodeClick = () => {},
+  onNodeDoubleClick,
+  onCreateLink,
+  showLegend = true,
+  onNavigateToSubgraph,
+}) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeSelectionRef = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
@@ -112,17 +128,58 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
   // Cache key for current topology
   const layoutCacheKey = useRef<string>('');
 
-  // 链接状态管理
+  // 链接状态管理 - ALL hooks must come before any early returns
   const [linkingState, setLinkingState] = useState<LinkingState | null>(null);
   const [pendingLink, setPendingLink] = useState<{ source: string; target: string } | null>(null);
   const [showLinkTypeModal, setShowLinkTypeModal] = useState(false);
   const [linkCreatedMessage, setLinkCreatedMessage] = useState<string | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   const onNodeClickRef = useRef(onNodeClick);
   const onNodeDoubleClickRef = useRef(onNodeDoubleClick);
   const onCreateLinkRef = useRef(onCreateLink);
+  const onNavigateToSubgraphRef = useRef(onNavigateToSubgraph);
 
-  // 处理连接点点击
+  // Fetch topology data from API when resourceId is provided
+  console.log('[TopologyGraph] Rendering with resourceId:', resourceId);
+
+  const {
+    topology: apiTopology,
+    rawData,
+    loading: apiLoading,
+    error: apiError,
+    refetch,
+  } = useTopology(resourceId ?? null, { autoFetch: !!resourceId });
+
+  console.log('[TopologyGraph] useTopology result:', { apiTopology, apiLoading, apiError });
+
+  // Use API data or static data
+  const data: Topology | null = resourceId && apiTopology
+    ? {
+        nodes: apiTopology.nodes.map(n => ({
+          id: n.id,
+          label: n.label,
+          type: n.type,
+          layer: (n.layer || 'application') as TopologyLayer,
+          isShadow: false,
+          isSubgraph: n.isSubgraph,
+          status: n.status,
+        })),
+        links: apiTopology.links.map(l => ({
+          source: l.source,
+          target: l.target,
+          type: l.type as TopologyLink['type'],
+          confidence: l.confidence,
+        })),
+      }
+    : staticData ?? null;
+
+  // Determine render state - but DON'T return early, just use for conditional rendering
+  const isLoading = resourceId && apiLoading;
+  const hasError = resourceId && apiError;
+  const isEmpty = !data || data.nodes.length === 0;
+
+  // 处理连接点点击 - ALL HOOKS MUST BE BEFORE ANY RETURNS
   const handlePortClick = useCallback((nodeId: string, port: 'top' | 'bottom', event: Event) => {
     event.stopPropagation();
 
@@ -158,15 +215,15 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
         type: linkType
       });
       // Show success message
-      const sourceName = data.nodes.find(n => n.id === pendingLink.source)?.label || pendingLink.source;
-      const targetName = data.nodes.find(n => n.id === pendingLink.target)?.label || pendingLink.target;
+      const sourceName = data?.nodes.find(n => n.id === pendingLink.source)?.label || pendingLink.source;
+      const targetName = data?.nodes.find(n => n.id === pendingLink.target)?.label || pendingLink.target;
       const linkLabel = LINK_TYPES.find(l => l.value === linkType)?.label || linkType;
       setLinkCreatedMessage(`Created ${linkLabel} link: ${sourceName} → ${targetName}`);
       setTimeout(() => setLinkCreatedMessage(null), 3000);
     }
     setPendingLink(null);
     setShowLinkTypeModal(false);
-  }, [pendingLink, data.nodes]);
+  }, [pendingLink, data?.nodes]);
 
   const handlePortClickRef = useRef(handlePortClick);
   // 同步更新 ref，确保点击时能获取最新的 handler
@@ -176,7 +233,8 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
     onNodeClickRef.current = onNodeClick;
     onNodeDoubleClickRef.current = onNodeDoubleClick;
     onCreateLinkRef.current = onCreateLink;
-  }, [onNodeClick, onNodeDoubleClick, onCreateLink]);
+    onNavigateToSubgraphRef.current = onNavigateToSubgraph;
+  }, [onNodeClick, onNodeDoubleClick, onCreateLink, onNavigateToSubgraph]);
 
   // 高亮活跃节点
   useEffect(() => {
@@ -767,6 +825,41 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
     const layerCenterX = (minX + maxX) / 2;
     const layerStartX = layerCenterX - layerWidth / 2;
     const labelOffset = layerStartX - 20; // Position labels to the left of layer background
+
+    // Helper function to constrain node positions within layer boundaries
+    const constrainNodePositions = () => {
+      const halfNodeWidth = rectWidth / 2;
+      const halfNodeHeight = rectHeight / 2;
+      const padding = 10;
+
+      treeNodes.forEach((d: any) => {
+        const nodeLayer = (d.data.layer || 'application') as TopologyLayer;
+        const layerPos = layerYPositions.get(nodeLayer);
+
+        // Constrain X within layer bounds
+        const xMinBound = layerStartX + halfNodeWidth + padding;
+        const xMaxBound = layerStartX + layerWidth - halfNodeWidth - padding;
+        // Ensure min <= max (safety check for narrow layers)
+        const effectiveMinX = Math.min(xMinBound, xMaxBound);
+        const effectiveMaxX = Math.max(xMinBound, xMaxBound);
+        if (d.x < effectiveMinX) d.x = effectiveMinX;
+        if (d.x > effectiveMaxX) d.x = effectiveMaxX;
+
+        // Constrain Y within layer bounds
+        if (layerPos) {
+          const yMinBound = layerPos.top + halfNodeHeight + padding;
+          const yMaxBound = layerPos.bottom - halfNodeHeight - padding;
+          // Ensure min <= max (safety check for short layers)
+          const effectiveMinY = Math.min(yMinBound, yMaxBound);
+          const effectiveMaxY = Math.max(yMinBound, yMaxBound);
+          if (d.y < effectiveMinY) d.y = effectiveMinY;
+          if (d.y > effectiveMaxY) d.y = effectiveMaxY;
+        }
+      });
+    };
+
+    // Apply constraints to all nodes (handles cached positions that may be outside bounds)
+    constrainNodePositions();
 
     activeLayers.forEach(layer => {
       const config = LAYER_CONFIG[layer];
@@ -1440,7 +1533,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
 
   // 获取节点名称
   const getNodeName = (nodeId: string) => {
-    const node = data.nodes.find(n => n.id === nodeId);
+    const node = data?.nodes.find(n => n.id === nodeId);
     return node?.label || nodeId;
   };
 
@@ -1451,6 +1544,51 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({ data, activeNodeIds, onNo
       cancelLinking();
     }
   }, [linkingState, cancelLinking]);
+
+  // Loading state - rendered conditionally
+  if (isLoading) {
+    return (
+      <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+          <span className="text-slate-400 text-sm">Loading topology...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (hasError) {
+    return (
+      <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 bg-red-950/20 border border-red-900/30 rounded-xl p-8 max-w-md">
+          <AlertTriangle className="w-12 h-12 text-red-500" />
+          <span className="text-red-400 text-sm text-center">{apiError}</span>
+          <button
+            onClick={refetch}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 text-sm transition-all"
+          >
+            <RefreshCw size={16} /> Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state
+  if (isEmpty) {
+    return (
+      <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-slate-500">
+          <svg className="w-16 h-16 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <p className="text-sm font-medium">No topology data</p>
+          <p className="text-xs text-slate-600">Add members to this subgraph to see the topology</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="w-full h-full bg-slate-900 overflow-hidden relative" onClick={handleBackgroundClick}>
