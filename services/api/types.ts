@@ -211,3 +211,399 @@ export const ERROR_MESSAGES: Record<number, string> = {
   [HTTP_STATUS.CONFLICT]: 'Operation conflict, please refresh and try again',
   [HTTP_STATUS.INTERNAL_SERVER_ERROR]: 'Service temporarily unavailable, please try again later',
 };
+
+// ============================================================================
+// Topology Types (Feature: 002-topology-api)
+// ============================================================================
+
+/**
+ * Relationship type enum
+ */
+export type RelationshipType = 'DEPENDENCY' | 'DATA_FLOW' | 'API_CALL' | 'DEPLOYMENT' | 'CALL';
+
+/**
+ * Relationship direction enum
+ */
+export type RelationshipDirection = 'UNIDIRECTIONAL' | 'BIDIRECTIONAL';
+
+/**
+ * Relationship status enum
+ */
+export type RelationshipStatus = 'ACTIVE' | 'INACTIVE';
+
+/**
+ * Topology layer enum
+ */
+export type TopologyLayer = 'scenario' | 'flow' | 'application' | 'middleware' | 'infrastructure';
+
+/**
+ * Topology node - represents a resource in the graph
+ */
+export interface TopologyNode {
+  id: number;
+  name: string;
+  typeCode: string;
+  typeName?: string;
+  status: ResourceStatus;
+  isSubgraph?: boolean;  // Legacy field name
+  subgraph?: boolean;    // Backend uses this field name
+  layer?: TopologyLayer;
+  attributes?: Record<string, unknown>;
+  expanded?: boolean;
+  parentSubgraphId?: number;
+}
+
+/**
+ * Edge strength enum (from topology query)
+ */
+export type EdgeStrength = 'STRONG' | 'MEDIUM' | 'WEAK' | number;
+
+/**
+ * Edge status enum (from topology query)
+ */
+export type EdgeStatus = 'NORMAL' | 'DEGRADED' | 'ERROR' | RelationshipStatus;
+
+/**
+ * Topology edge - represents a relationship between resources
+ */
+export interface TopologyEdge {
+  id?: number;
+  sourceId: number;
+  targetId: number;
+  relationshipType: RelationshipType | 'CALL';  // Backend may return 'CALL' directly
+  direction: RelationshipDirection;
+  strength: EdgeStrength;
+  status: EdgeStatus;
+}
+
+/**
+ * Topology boundary - visual boundary for nested topologies
+ */
+export interface TopologyBoundary {
+  subgraphId: number;  // Backend field name (kept for API compatibility)
+  memberIds: number[];
+}
+
+/** @deprecated Use TopologyBoundary instead */
+export type SubgraphBoundary = TopologyBoundary;
+
+/**
+ * Topology member - a resource's membership in a topology
+ */
+export interface TopologyMember {
+  id: number;
+  subgraphId: number;  // Backend field name (kept for API compatibility)
+  memberId: number;
+  memberName: string;
+  memberTypeCode: string;
+  memberStatus: ResourceStatus;
+  addedAt: string;
+  addedBy: number;
+}
+
+/** @deprecated Use TopologyMember instead */
+export type SubgraphMember = TopologyMember;
+
+/**
+ * Full relationship entity with metadata
+ */
+export interface Relationship {
+  id: number;
+  sourceResourceId: number;
+  targetResourceId: number;
+  type: RelationshipType;
+  direction: RelationshipDirection;
+  strength: number;
+  status: RelationshipStatus;
+  description?: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: number;
+}
+
+/**
+ * Ancestor node for breadcrumb navigation
+ */
+export interface AncestorNode {
+  id: number;
+  name: string;
+  depth: number;
+}
+
+// ============================================================================
+// Topology Request Types
+// ============================================================================
+
+/**
+ * Query topology graph data request
+ */
+export interface TopologyQueryRequest {
+  resourceId: number;  // Backend uses resourceId, not subgraphId
+  depth?: number;
+  includeRelationships?: boolean;
+}
+
+/**
+ * Query topology graph data response
+ */
+export interface TopologyQueryResponse {
+  nodes: TopologyNode[];
+  edges: TopologyEdge[];
+  boundaries: TopologyBoundary[];
+  subgraphBoundaries?: TopologyBoundary[];  // Backend returns this field name
+}
+
+/**
+ * Add members to subgraph request
+ */
+export interface MembersAddRequest {
+  resourceId: number;  // Backend uses resourceId, not subgraphId
+  memberIds: number[];
+}
+
+/**
+ * Add members response
+ */
+export interface MembersAddResponse {
+  addedCount: number;
+  members: TopologyMember[];
+}
+
+/**
+ * Remove members from subgraph request
+ */
+export interface MembersRemoveRequest {
+  resourceId: number;  // Backend uses resourceId, not subgraphId
+  memberIds: number[];
+}
+
+/**
+ * Query members request
+ */
+export interface MembersQueryRequest {
+  resourceId: number;  // Backend uses resourceId, not subgraphId
+  page?: number;
+  size?: number;
+}
+
+/**
+ * Query ancestors request
+ */
+export interface AncestorsQueryRequest {
+  resourceId: number;
+}
+
+/**
+ * Relationship strength enum
+ */
+export type RelationshipStrength = 'STRONG' | 'MEDIUM' | 'WEAK';
+
+/**
+ * Create relationship request
+ */
+export interface RelationshipCreateRequest {
+  sourceResourceId: number;
+  targetResourceId: number;
+  relationshipType: RelationshipType;  // Backend field name is relationshipType
+  direction: RelationshipDirection;
+  strength: RelationshipStrength;  // Backend expects string enum
+  description?: string;
+}
+
+/**
+ * Update relationship request
+ */
+export interface RelationshipUpdateRequest {
+  id: number;
+  type?: RelationshipType;
+  direction?: RelationshipDirection;
+  strength?: number;
+  description?: string;
+  status?: RelationshipStatus;
+  version: number;
+}
+
+/**
+ * Delete relationship request
+ */
+export interface RelationshipDeleteRequest {
+  id: number;
+}
+
+/**
+ * Query resource relationships request
+ */
+export interface ResourceRelationshipsQueryRequest {
+  resourceId: number;
+  type?: RelationshipType;
+}
+
+/**
+ * Cycle detection request
+ */
+export interface CycleDetectionRequest {
+  resourceId: number;  // Backend uses resourceId, not subgraphId
+  candidateMemberIds: number[];
+}
+
+/**
+ * Cycle detection response
+ */
+export interface CycleDetectionResponse {
+  hasCycle: boolean;
+  cyclePath?: number[];
+  cycleDescription?: string;
+}
+
+// ============================================================================
+// Topology Management Types (Feature: 003-topologies-management)
+// ============================================================================
+
+/**
+ * Topology attributes stored in the attributes JSON field
+ */
+export interface TopologyAttributes {
+  isSubgraph: boolean;
+  tags: string[];
+  templateIds: string[];
+}
+
+/**
+ * Topology item for list display
+ * Combines API data with computed fields
+ */
+export interface TopologyListItem {
+  id: number;
+  name: string;
+  description: string;
+  memberCount: number;
+  tags: string[];
+  templateIds: string[];
+  status: ResourceStatus;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  resourceTypeId: number;
+  isActive?: boolean;  // UI state: currently selected
+}
+
+/**
+ * Form data for creating/editing a Topology
+ */
+export interface TopologyFormData {
+  name: string;           // Required
+  description: string;    // Optional
+  tags: string[];         // Optional array
+  templateIds: string[];  // Optional array of template IDs
+}
+
+/**
+ * Parse topology attributes from JSON string
+ */
+export function parseTopologyAttributes(attributesJson: string | null): TopologyAttributes {
+  if (!attributesJson) {
+    return { isSubgraph: false, tags: [], templateIds: [] };
+  }
+  try {
+    const parsed = JSON.parse(attributesJson);
+    return {
+      isSubgraph: parsed.isSubgraph === true,
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      templateIds: Array.isArray(parsed.templateIds) ? parsed.templateIds : [],
+    };
+  } catch {
+    return { isSubgraph: false, tags: [], templateIds: [] };
+  }
+}
+
+/**
+ * Serialize topology attributes to JSON string
+ */
+export function serializeTopologyAttributes(attrs: TopologyAttributes): string {
+  return JSON.stringify(attrs);
+}
+
+// ============================================================================
+// Topology CRUD Types (Feature: 004-topology-api-separation)
+// ============================================================================
+
+/**
+ * TopologyDTO - Dedicated topology entity from /api/v1/topologies/* endpoints
+ * This is separate from ResourceDTO as topologies are now first-class entities
+ */
+export interface TopologyDTO {
+  id: number;
+  name: string;
+  description: string | null;
+  status: ResourceStatus;
+  statusDisplay: string;
+  attributes: string | null;
+  memberCount: number;  // Direct count from backend, no parsing needed
+  version: number;
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Query topologies list request
+ * POST /api/v1/topologies/query
+ */
+export interface QueryTopologiesRequest {
+  operatorId: number;
+  name?: string;      // Fuzzy search by name
+  status?: ResourceStatus;
+  page?: number;      // Default 1
+  size?: number;      // Default 10, max 100
+}
+
+/**
+ * Create topology request
+ * POST /api/v1/topologies/create
+ */
+export interface CreateTopologyApiRequest {
+  operatorId: number;
+  name: string;        // Required, max 100 chars
+  description?: string; // Optional, max 500 chars
+}
+
+/**
+ * Get topology request
+ * POST /api/v1/topologies/get
+ */
+export interface GetTopologyRequest {
+  operatorId: number;
+  id: number;
+}
+
+/**
+ * Update topology request
+ * POST /api/v1/topologies/update
+ */
+export interface UpdateTopologyApiRequest {
+  operatorId: number;
+  id: number;
+  name?: string;       // Optional, null means no change
+  description?: string; // Optional, null means no change
+  version: number;     // Required for optimistic locking
+}
+
+/**
+ * Delete topology request
+ * POST /api/v1/topologies/delete
+ */
+export interface DeleteTopologyApiRequest {
+  operatorId: number;
+  id: number;
+}
+
+// ============================================================================
+// Topology CRUD Response Types (Feature: 004-topology-api-separation)
+// ============================================================================
+
+export type QueryTopologiesResponse = ApiResponse<PageResult<TopologyDTO>>;
+export type CreateTopologyApiResponse = TopologyDTO; // 201 returns TopologyDTO directly
+export type GetTopologyResponse = ApiResponse<TopologyDTO>;
+export type UpdateTopologyApiResponse = ApiResponse<TopologyDTO>;
+export type DeleteTopologyApiResponse = ApiResponse<void>;

@@ -67,12 +67,16 @@ export type TopologyLayer =
 export interface TopologyNode {
   id: string;
   label: string;
-  type: 'Database' | 'Service' | 'Gateway' | 'Cache' | 'Infrastructure';
+  type: 'Database' | 'Service' | 'Gateway' | 'Cache' | 'Infrastructure' | string;
   layer?: TopologyLayer;
   x?: number;
   y?: number;
   properties?: Record<string, string>;
   isShadow?: boolean;
+  /** Whether this node is a subgraph container */
+  isSubgraph?: boolean;
+  /** Node status (from API) */
+  status?: string;
 }
 
 export type LinkType = 'call' | 'deployment' | 'dependency' | 'inferred';
