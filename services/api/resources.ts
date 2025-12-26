@@ -94,16 +94,38 @@ import type {
 
 // ============================================================================
 // API Endpoints
+// NOTE: Resource CRUD endpoints are deprecated in favor of Node API (Feature: 005-api-reintegration)
+// The hooks now use nodeApi internally for backward compatibility
+// These endpoints are kept for reference and audit log functionality
 // ============================================================================
 
+/**
+ * @deprecated Most endpoints replaced by nodeApi (Feature: 005-api-reintegration)
+ * - RESOURCES_QUERY → nodeApi.query()
+ * - RESOURCES_CREATE → nodeApi.create()
+ * - RESOURCES_GET → nodeApi.get()
+ * - RESOURCES_UPDATE → nodeApi.update()
+ * - RESOURCES_DELETE → nodeApi.delete()
+ * - RESOURCE_TYPES_QUERY → nodeApi.getTypes()
+ * - RESOURCES_UPDATE_STATUS: Still in use (no node equivalent yet)
+ * - AUDIT_LOGS_QUERY: Still in use (no node equivalent yet)
+ */
 const ENDPOINTS = {
+  /** @deprecated Use nodeApi.query() instead */
   RESOURCES_QUERY: '/api/v1/resources/query',
+  /** @deprecated Use nodeApi.create() instead */
   RESOURCES_CREATE: '/api/v1/resources/create',
+  /** @deprecated Use nodeApi.get() instead */
   RESOURCES_GET: '/api/v1/resources/get',
+  /** @deprecated Use nodeApi.update() instead */
   RESOURCES_UPDATE: '/api/v1/resources/update',
+  /** @deprecated Use nodeApi.delete() instead */
   RESOURCES_DELETE: '/api/v1/resources/delete',
+  // Still in use - no node equivalent
   RESOURCES_UPDATE_STATUS: '/api/v1/resources/update-status',
+  /** @deprecated Use nodeApi.getTypes() instead */
   RESOURCE_TYPES_QUERY: '/api/v1/resource-types/query',
+  // Still in use - no node equivalent
   AUDIT_LOGS_QUERY: '/api/v1/resources/audit-logs/query',
 } as const;
 

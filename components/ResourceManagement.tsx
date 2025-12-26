@@ -4,8 +4,9 @@ import StyledSelect from './ui/StyledSelect';
 import { useResources, type ResourceFilters } from '../services/hooks/useResources';
 import { useResourceTypes } from '../services/hooks/useResourceTypes';
 import { resourceApi, getResourceTypeIcon, getStatusConfig, type ResourceIcon } from '../services/api/resources';
+import { nodeApi } from '../services/api/nodes';
 import { ApiError } from '../services/api/client';
-import type { ResourceDTO, ResourceStatus, ResourceTypeDTO, CreateResourceRequest, UpdateResourceRequest } from '../services/api/types';
+import type { ResourceDTO, ResourceStatus, ResourceTypeDTO, CreateResourceRequest, UpdateResourceRequest, CreateNodeRequest } from '../services/api/types';
 import {
   Search,
   Plus,
@@ -581,14 +582,15 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
         };
         await resourceApi.update(updateData);
       } else {
-        // Create
-        const createData: CreateResourceRequest = {
+        // Create - Uses nodeApi instead of resourceApi (005-api-reintegration)
+        const createData: CreateNodeRequest = {
+          operatorId: 1,
           name: formData.name,
           description: formData.description || undefined,
-          resourceTypeId: formData.resourceTypeId,
+          nodeTypeId: formData.resourceTypeId, // resourceTypeId maps to nodeTypeId
           attributes: formData.attributes || undefined,
         };
-        await resourceApi.create(createData);
+        await nodeApi.create(createData);
       }
       onSave();
     } catch (err) {

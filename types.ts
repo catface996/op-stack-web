@@ -85,8 +85,9 @@ export interface TopologyLink {
   source: string;
   target: string;
   type?: LinkType;
-  confidence?: number; 
+  confidence?: number;
   metadata?: any;
+  relationshipId?: number;
 }
 
 export interface Topology {

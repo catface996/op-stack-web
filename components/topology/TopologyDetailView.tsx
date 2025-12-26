@@ -77,10 +77,8 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
     setTopologyError(null);
 
     try {
-      const result = await topologyApi.get({
-        operatorId: DEFAULT_OPERATOR_ID,
-        id: topologyId,
-      });
+      // T020: GetTopologyRequest only needs id, not operatorId
+      const result = await topologyApi.get({ id: topologyId });
       setTopology(result);
       setTopologyAttrs(parseTopologyAttributes(result.attributes));
     } catch (err) {
@@ -163,19 +161,79 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
 
     const relationshipType = typeMapping[link.type] || 'CALL';
 
+    const requestData = {
+      sourceResourceId: parseInt(link.source, 10),
+      targetResourceId: parseInt(link.target, 10),
+      relationshipType: relationshipType,
+      direction: 'UNIDIRECTIONAL' as const,
+      strength: 'STRONG' as const,
+    };
+
+    console.log('[TopologyDetailView] Creating relationship:', requestData);
+
     try {
-      await topologyApi.createRelationship({
-        sourceResourceId: parseInt(link.source, 10),
-        targetResourceId: parseInt(link.target, 10),
-        relationshipType: relationshipType,
-        direction: 'UNIDIRECTIONAL',
-        strength: 'STRONG',
-      });
+      await topologyApi.createRelationship(requestData);
 
       // Refresh the graph to show the new link
       setGraphKey(prev => prev + 1);
     } catch (err) {
       console.error('Failed to create relationship:', err);
+      console.error('Request data was:', requestData);
+      // Could add error toast notification here
+    }
+  }, []);
+
+  // Handle update link type
+  const handleUpdateLink = useCallback(async (link: { source: string; target: string; oldType: string; newType: string; relationshipId?: number }) => {
+    if (!link.relationshipId) {
+      console.error('Cannot update link: missing relationshipId');
+      return;
+    }
+
+    // Map UI link type to API RelationshipType
+    const typeMapping: Record<string, 'CALL' | 'DEPENDENCY' | 'DEPLOYMENT' | 'DATA_FLOW'> = {
+      call: 'CALL',
+      dependency: 'DEPENDENCY',
+      deployment: 'DEPLOYMENT',
+    };
+
+    const relationshipType = typeMapping[link.newType] || 'CALL';
+
+    console.log('[TopologyDetailView] Updating relationship:', { id: link.relationshipId, type: relationshipType });
+
+    try {
+      await topologyApi.updateRelationship({
+        id: link.relationshipId,
+        type: relationshipType,
+        version: 0, // Backend should handle version or return current version
+      });
+
+      // Refresh the graph to show the updated link
+      setGraphKey(prev => prev + 1);
+    } catch (err) {
+      console.error('Failed to update relationship:', err);
+      // Could add error toast notification here
+    }
+  }, []);
+
+  // Handle delete link
+  const handleDeleteLink = useCallback(async (link: { source: string; target: string; type: string; relationshipId?: number }) => {
+    if (!link.relationshipId) {
+      console.error('Cannot delete link: missing relationshipId');
+      return;
+    }
+
+    console.log('[TopologyDetailView] Deleting relationship:', { id: link.relationshipId });
+
+    try {
+      await topologyApi.deleteRelationship({
+        id: link.relationshipId,
+      });
+
+      // Refresh the graph to show the deleted link
+      setGraphKey(prev => prev + 1);
+    } catch (err) {
+      console.error('Failed to delete relationship:', err);
       // Could add error toast notification here
     }
   }, []);
@@ -271,6 +329,8 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onCreateLink={handleCreateLink}
+            onUpdateLink={handleUpdateLink}
+            onDeleteLink={handleDeleteLink}
             showLegend={true}
           />
         </div>

@@ -11,9 +11,7 @@ import type {
   TopologyDTO,
   TopologyFormData,
 } from '../api/types';
-
-// Default operator ID (hardcoded until auth is implemented)
-const DEFAULT_OPERATOR_ID = 1;
+import { DEFAULT_OPERATOR_ID } from '../api/types';
 
 export interface UseTopologyMutationsResult {
   creating: boolean;

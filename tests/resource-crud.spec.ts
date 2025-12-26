@@ -19,6 +19,9 @@ test.describe('Resource Management CRUD', () => {
     await page.click('text=Resources');
     await page.waitForTimeout(500);
 
+    // Verify URL changed to /resources
+    await expect(page).toHaveURL(/\/resources$/);
+
     // Verify the Infrastructure Registry heading is visible
     await expect(page.locator('text=Infrastructure Registry')).toBeVisible();
 

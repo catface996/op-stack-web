@@ -538,6 +538,7 @@ export interface TopologyDTO {
   description: string | null;
   status: ResourceStatus;
   statusDisplay: string;
+  coordinatorAgentId: number | null;  // NEW: Coordinator Agent ID (Feature: 005-api-reintegration)
   attributes: string | null;
   memberCount: number;  // Direct count from backend, no parsing needed
   version: number;
@@ -554,6 +555,7 @@ export interface QueryTopologiesRequest {
   operatorId: number;
   name?: string;      // Fuzzy search by name
   status?: ResourceStatus;
+  nodeId?: number;    // Filter topologies containing this node
   page?: number;      // Default 1
   size?: number;      // Default 10, max 100
 }
@@ -571,9 +573,9 @@ export interface CreateTopologyApiRequest {
 /**
  * Get topology request
  * POST /api/v1/topologies/get
+ * Note: Only id is required for get request
  */
 export interface GetTopologyRequest {
-  operatorId: number;
   id: number;
 }
 
@@ -584,9 +586,10 @@ export interface GetTopologyRequest {
 export interface UpdateTopologyApiRequest {
   operatorId: number;
   id: number;
-  name?: string;       // Optional, null means no change
-  description?: string; // Optional, null means no change
-  version: number;     // Required for optimistic locking
+  name?: string;               // Optional, null means no change
+  description?: string;        // Optional, null means no change
+  coordinatorAgentId?: number; // Optional, NEW field (Feature: 005-api-reintegration)
+  version: number;             // Required for optimistic locking
 }
 
 /**
@@ -607,3 +610,162 @@ export type CreateTopologyApiResponse = TopologyDTO; // 201 returns TopologyDTO 
 export type GetTopologyResponse = ApiResponse<TopologyDTO>;
 export type UpdateTopologyApiResponse = ApiResponse<TopologyDTO>;
 export type DeleteTopologyApiResponse = ApiResponse<void>;
+
+// ============================================================================
+// Node Types (Feature: 005-api-reintegration)
+// ============================================================================
+
+/**
+ * Default operator ID for API requests (placeholder until authentication)
+ */
+export const DEFAULT_OPERATOR_ID = 1;
+
+/**
+ * NodeDTO - Resource node entity from /api/v1/nodes/* endpoints
+ * This is the new dedicated node entity separate from ResourceDTO
+ */
+export interface NodeDTO {
+  id: number;
+  name: string;
+  description: string | null;
+  nodeTypeId: number;
+  nodeTypeName: string;
+  nodeTypeCode: string;
+  status: ResourceStatus;
+  statusDisplay: string;
+  agentTeamId: number | null;
+  attributes: string | null;
+  version: number;
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * NodeTypeDTO - Node type definition from /api/v1/nodes/types/query
+ */
+export interface NodeTypeDTO {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
+// Node Request Types (Feature: 005-api-reintegration)
+// ============================================================================
+
+/**
+ * Query nodes list request
+ * POST /api/v1/nodes/query
+ */
+export interface QueryNodesRequest {
+  nodeTypeId?: number;
+  status?: ResourceStatus;
+  keyword?: string;
+  topologyId?: number;
+  page?: number;
+  size?: number;
+}
+
+/**
+ * Create node request
+ * POST /api/v1/nodes/create
+ */
+export interface CreateNodeRequest {
+  operatorId: number;
+  name: string;
+  description?: string;
+  nodeTypeId: number;
+  agentTeamId?: number;
+  attributes?: string;
+}
+
+/**
+ * Get node request
+ * POST /api/v1/nodes/get
+ */
+export interface GetNodeRequest {
+  id: number;
+}
+
+/**
+ * Update node request
+ * POST /api/v1/nodes/update
+ */
+export interface UpdateNodeRequest {
+  operatorId: number;
+  id: number;
+  name?: string;
+  description?: string;
+  agentTeamId?: number;
+  attributes?: string;
+  version: number;
+}
+
+/**
+ * Delete node request
+ * POST /api/v1/nodes/delete
+ */
+export interface DeleteNodeRequest {
+  operatorId: number;
+  id: number;
+}
+
+// ============================================================================
+// Node Response Types (Feature: 005-api-reintegration)
+// ============================================================================
+
+export type QueryNodesResponse = ApiResponse<PageResult<NodeDTO>>;
+export type CreateNodeResponse = NodeDTO;
+export type GetNodeResponse = ApiResponse<NodeDTO>;
+export type UpdateNodeResponse = ApiResponse<NodeDTO>;
+export type DeleteNodeResponse = ApiResponse<void>;
+export type QueryNodeTypesResponse = ApiResponse<NodeTypeDTO[]>;
+
+// ============================================================================
+// Updated Topology Member Request Types (Feature: 005-api-reintegration)
+// Now uses topologyId instead of resourceId
+// ============================================================================
+
+/**
+ * Query topology members request (NEW endpoints)
+ * POST /api/v1/topologies/members/query
+ */
+export interface TopologyMembersQueryRequest {
+  topologyId: number;
+  page?: number;
+  size?: number;
+}
+
+/**
+ * Add members to topology request (NEW endpoints)
+ * POST /api/v1/topologies/members/add
+ */
+export interface TopologyMembersAddRequest {
+  topologyId: number;
+  nodeIds: number[];  // Backend expects nodeIds, not memberIds
+}
+
+/**
+ * Remove members from topology request (NEW endpoints)
+ * POST /api/v1/topologies/members/remove
+ */
+export interface TopologyMembersRemoveRequest {
+  topologyId: number;
+  nodeIds: number[];  // Backend expects nodeIds, not memberIds
+}
+
+/**
+ * Query topology graph data request (NEW endpoint)
+ * POST /api/v1/topologies/graph/query
+ * Returns nodes, edges, and boundaries for visualization
+ */
+export interface TopologyGraphQueryRequest {
+  topologyId: number;
+  depth?: number;
+  includeRelationships?: boolean;
+}

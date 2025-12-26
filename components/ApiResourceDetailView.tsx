@@ -20,24 +20,50 @@ import {
   Info,
   Plus,
   X,
-  Check
+  Check,
+  LayoutGrid,
+  LayoutList,
 } from 'lucide-react';
 import { resourceApi, getResourceTypeIcon, getStatusConfig, STATUS_CONFIG } from '../services/api/resources';
+import { nodeApi } from '../services/api/nodes';
 import { useResourceAuditLogs } from '../services/hooks/useResourceAuditLogs';
 import { useResourceTypes } from '../services/hooks/useResourceTypes';
+import { useNodeTopologies } from '../services/hooks/useNodeTopologies';
 import { ApiError } from '../services/api/client';
-import type { ResourceDTO, ResourceStatus, UpdateResourceRequest } from '../services/api/types';
+import type { ResourceDTO, ResourceStatus, NodeDTO } from '../services/api/types';
 import StyledSelect from './ui/StyledSelect';
 import TopologyGraph from './TopologyGraph';
 
 interface ApiResourceDetailViewProps {
   resourceId: number;
   onBack: () => void;
+  onNavigateToTopology?: (topologyId: number) => void;
 }
 
 type TabType = 'info' | 'topologies' | 'agents' | 'history';
 
-const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceId, onBack }) => {
+/**
+ * Convert NodeDTO to ResourceDTO for backward compatibility
+ */
+function nodeToResource(node: NodeDTO): ResourceDTO {
+  return {
+    id: node.id,
+    name: node.name,
+    description: node.description,
+    resourceTypeId: node.nodeTypeId,
+    resourceTypeName: node.nodeTypeName,
+    resourceTypeCode: node.nodeTypeCode,
+    status: node.status,
+    statusDisplay: node.statusDisplay,
+    attributes: node.attributes,
+    version: node.version,
+    createdAt: node.createdAt,
+    updatedAt: node.updatedAt,
+    createdBy: node.createdBy,
+  };
+}
+
+const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceId, onBack, onNavigateToTopology }) => {
   const [resource, setResource] = useState<ResourceDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,15 +74,26 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
+  // Topologies view mode: 'card' or 'list'
+  const [topologiesViewMode, setTopologiesViewMode] = useState<'card' | 'list'>('card');
+
   const { logs, pagination, loading: logsLoading, setPage, refresh: refreshLogs } = useResourceAuditLogs(resourceId);
   const { types: resourceTypes, loading: typesLoading } = useResourceTypes();
+  const {
+    topologies: nodeTopologies,
+    pagination: topologiesPagination,
+    loading: topologiesLoading,
+    error: topologiesError,
+    refresh: refreshTopologies,
+    setPage: setTopologiesPage,
+  } = useNodeTopologies(resourceId);
 
   const fetchResource = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await resourceApi.get(resourceId);
-      setResource(data);
+      const nodeData = await nodeApi.get(resourceId);
+      setResource(nodeToResource(nodeData));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load resource');
     } finally {
@@ -66,8 +103,8 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
 
   const refreshResource = async () => {
     try {
-      const data = await resourceApi.get(resourceId);
-      setResource(data);
+      const nodeData = await nodeApi.get(resourceId);
+      setResource(nodeToResource(nodeData));
       refreshLogs();
     } catch (err) {
       // Silent refresh failure
@@ -352,35 +389,236 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
   const showTopologyGraph = true; // isSubgraph;
 
   const renderTopologiesTab = () => {
-    // If this resource is a subgraph (or testing mode), show the topology graph
-    if (showTopologyGraph) {
-      return (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
-          <TopologyGraph
-            resourceId={resource.id}
-            onNodeClick={(nodeId) => console.log('Node clicked:', nodeId)}
-            onNodeDoubleClick={(nodeId) => console.log('Node double-clicked:', nodeId)}
-            onNavigateToSubgraph={handleNavigateToSubgraph}
-            showLegend={true}
-          />
-        </div>
-      );
-    }
+    // Card view component - matches TopologiesManagement card style
+    const renderCardView = () => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {nodeTopologies.map((topology) => {
+          const statusColor = topology.status === 'RUNNING' ? 'bg-green-500' :
+            topology.status === 'STOPPED' ? 'bg-slate-500' :
+            topology.status === 'MAINTENANCE' ? 'bg-yellow-500' : 'bg-red-500';
 
-    // Non-subgraph resources show the original topology linking UI
+          return (
+            <div
+              key={topology.id}
+              onClick={() => onNavigateToTopology?.(topology.id)}
+              className="relative bg-slate-900 border border-slate-800/80 rounded-xl transition-all cursor-pointer flex flex-col min-h-[200px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-cyan-950/10 hover:border-cyan-500/40 hover:bg-slate-800/40"
+            >
+              {/* Top accent bar */}
+              <div className={`h-1 w-full ${statusColor} opacity-50`}></div>
+
+              <div className="p-5 flex flex-col flex-1">
+                {/* Header: Icon and badges */}
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-2 rounded-lg bg-slate-950 text-cyan-500 border border-slate-800">
+                    <Network size={20} />
+                  </div>
+                  <div className="flex items-center gap-1 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">
+                    <Box size={10} /> {topology.memberCount ?? 0} MEMBERS
+                  </div>
+                </div>
+
+                {/* Name and description */}
+                <div className="mb-4">
+                  <h3 className="text-base font-bold mb-0.5 truncate text-white leading-tight">{topology.name}</h3>
+                  <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">
+                    ID: {topology.id}
+                  </div>
+                  {topology.description && (
+                    <div className="text-[10px] text-slate-500 mt-2 line-clamp-2">{topology.description}</div>
+                  )}
+                </div>
+
+                {/* Flex spacer */}
+                <div className="flex-1"></div>
+
+                {/* Footer */}
+                <div className="mt-4 pt-4 border-t border-slate-800/40 flex items-center justify-between">
+                  <div className="text-[9px] text-slate-600">
+                    {topology.createdAt ? new Date(topology.createdAt).toLocaleDateString() : ''}
+                  </div>
+                  <ChevronRight size={16} className="text-slate-600" />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+
+    // List view component (table style)
+    const renderListView = () => (
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-slate-800">
+              <th className="text-left py-3 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">ID</th>
+              <th className="text-left py-3 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Name</th>
+              <th className="text-left py-3 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Description</th>
+              <th className="text-left py-3 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Members</th>
+              <th className="text-left py-3 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+              <th className="text-left py-3 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Created</th>
+              <th className="text-left py-3 px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {nodeTopologies.map((topology) => (
+              <tr
+                key={topology.id}
+                className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
+              >
+                <td className="py-3 px-4 text-xs font-mono text-slate-400">{topology.id}</td>
+                <td className="py-3 px-4">
+                  <div className="flex items-center gap-2">
+                    <Network size={14} className="text-cyan-500" />
+                    <span className="text-sm font-bold text-white">{topology.name}</span>
+                  </div>
+                </td>
+                <td className="py-3 px-4 text-xs text-slate-500 max-w-[200px] truncate">
+                  {topology.description || '-'}
+                </td>
+                <td className="py-3 px-4 text-xs text-slate-400 font-mono">{topology.memberCount ?? 0}</td>
+                <td className="py-3 px-4">
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${
+                    topology.status === 'RUNNING' ? 'text-green-400' :
+                    topology.status === 'STOPPED' ? 'text-slate-500' :
+                    topology.status === 'MAINTENANCE' ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    {topology.status}
+                  </span>
+                </td>
+                <td className="py-3 px-4 text-xs text-slate-500">
+                  {topology.createdAt ? new Date(topology.createdAt).toLocaleDateString() : '-'}
+                </td>
+                <td className="py-3 px-4 text-xs text-slate-500">
+                  {topology.updatedAt ? new Date(topology.updatedAt).toLocaleDateString() : '-'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+
     return (
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+      <div>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-sm font-bold text-white">Associated Topologies</h3>
-          <button className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-xs font-bold text-white transition-all">
-            <Plus size={14} /> Link Topology
-          </button>
+          <div className="flex items-center gap-2">
+            {/* View mode toggle */}
+            <div className="flex items-center bg-slate-800 rounded-lg p-0.5">
+              <button
+                onClick={() => setTopologiesViewMode('card')}
+                className={`p-1.5 rounded transition-all ${
+                  topologiesViewMode === 'card'
+                    ? 'bg-slate-700 text-cyan-400'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+                title="Card view"
+              >
+                <LayoutGrid size={14} />
+              </button>
+              <button
+                onClick={() => setTopologiesViewMode('list')}
+                className={`p-1.5 rounded transition-all ${
+                  topologiesViewMode === 'list'
+                    ? 'bg-slate-700 text-cyan-400'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+                title="List view"
+              >
+                <LayoutList size={14} />
+              </button>
+            </div>
+            {/* Refresh button */}
+            <button
+              onClick={refreshTopologies}
+              disabled={topologiesLoading}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition-all"
+            >
+              <RefreshCw size={14} className={topologiesLoading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
         </div>
-        <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-          <Network size={48} className="opacity-20 mb-4" />
-          <p className="text-sm font-medium">No topologies linked</p>
-          <p className="text-xs text-slate-600 mt-1">Link this resource to topology groups for better visibility</p>
-        </div>
+
+        {/* Loading state */}
+        {topologiesLoading && nodeTopologies.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+            <Loader2 size={32} className="animate-spin text-cyan-500 mb-4" />
+            <p className="text-sm font-medium">Loading topologies...</p>
+          </div>
+        )}
+
+        {/* Error state */}
+        {topologiesError && (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+            <AlertTriangle size={32} className="text-red-500 opacity-50 mb-4" />
+            <p className="text-sm font-medium text-red-400">{topologiesError}</p>
+            <button
+              onClick={refreshTopologies}
+              className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition-all"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!topologiesLoading && !topologiesError && nodeTopologies.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+            <Network size={48} className="opacity-20 mb-4" />
+            <p className="text-sm font-medium">No topologies found</p>
+            <p className="text-xs text-slate-600 mt-1">This resource is not a member of any topology</p>
+          </div>
+        )}
+
+        {/* Topologies content */}
+        {!topologiesError && nodeTopologies.length > 0 && (
+          <>
+            {topologiesViewMode === 'card' ? renderCardView() : renderListView()}
+
+            {/* Pagination */}
+            {topologiesPagination.totalPages > 1 && (
+              <div className="flex justify-center items-center gap-4 pt-6 mt-6 border-t border-slate-800">
+                <button
+                  onClick={() => setTopologiesPage(topologiesPagination.page - 1)}
+                  disabled={topologiesPagination.page === 1 || topologiesLoading}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 disabled:opacity-30 hover:bg-slate-700 text-slate-300 transition-all text-xs font-bold"
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+                <span className="text-xs text-slate-400">
+                  Page <span className="text-white font-mono font-bold">{topologiesPagination.page}</span> of{' '}
+                  <span className="font-mono font-bold">{topologiesPagination.totalPages}</span>
+                  <span className="text-slate-600 ml-2">({topologiesPagination.totalElements} total)</span>
+                </span>
+                <button
+                  onClick={() => setTopologiesPage(topologiesPagination.page + 1)}
+                  disabled={topologiesPagination.page >= topologiesPagination.totalPages || topologiesLoading}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 disabled:opacity-30 hover:bg-slate-700 text-slate-300 transition-all text-xs font-bold"
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Show topology graph if this is a subgraph */}
+        {isSubgraph && nodeTopologies.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-slate-800">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Topology Graph Preview</h4>
+            <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden" style={{ height: '400px' }}>
+              <TopologyGraph
+                resourceId={resource.id}
+                onNodeClick={(nodeId) => console.log('Node clicked:', nodeId)}
+                onNodeDoubleClick={(nodeId) => console.log('Node double-clicked:', nodeId)}
+                onNavigateToSubgraph={handleNavigateToSubgraph}
+                showLegend={true}
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -562,14 +800,14 @@ const EditResourceModal: React.FC<EditResourceModalProps> = ({ resource, onClose
     setError(null);
 
     try {
-      const updateData: UpdateResourceRequest = {
+      await nodeApi.update({
+        operatorId: 1,
         id: resource.id,
         name: formData.name,
         description: formData.description || undefined,
         attributes: formData.attributes || undefined,
         version: resource.version,
-      };
-      await resourceApi.update(updateData);
+      });
       onSave();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -736,7 +974,7 @@ const DeleteResourceModal: React.FC<DeleteResourceModalProps> = ({ resource, onC
     setError(null);
 
     try {
-      await resourceApi.delete(resource.id, confirmName);
+      await nodeApi.delete({ operatorId: 1, id: resource.id });
       onDeleted();
     } catch (err) {
       if (err instanceof ApiError) {

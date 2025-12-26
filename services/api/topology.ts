@@ -32,31 +32,55 @@ import type {
   GetTopologyRequest,
   UpdateTopologyApiRequest,
   DeleteTopologyApiRequest,
+  // Topology Member types (Feature: 005-api-reintegration)
+  TopologyMembersQueryRequest,
+  TopologyMembersAddRequest,
+  TopologyMembersRemoveRequest,
+  // Topology Graph Query (Feature: 005-api-reintegration)
+  TopologyGraphQueryRequest,
 } from './types';
 
 // ============================================================================
 // API Endpoints
 // ============================================================================
 
+/**
+ * Legacy endpoints - some are deprecated, others still in use
+ * @deprecated Members endpoints moved to TOPOLOGY_MEMBER_ENDPOINTS
+ */
 const ENDPOINTS = {
   // Topology Graph (deprecated - use TOPOLOGY_CRUD for list/CRUD operations)
   TOPOLOGY_QUERY: '/api/v1/resources/topology/query',
 
-  // Members
+  // Members (DEPRECATED - use TOPOLOGY_MEMBER_ENDPOINTS instead)
+  /** @deprecated Use TOPOLOGY_MEMBER_ENDPOINTS.QUERY instead */
   MEMBERS_QUERY: '/api/v1/resources/members/query',
   MEMBERS_WITH_RELATIONS_QUERY: '/api/v1/resources/members-with-relations/query',
+  /** @deprecated Use TOPOLOGY_MEMBER_ENDPOINTS.ADD instead */
   MEMBERS_ADD: '/api/v1/resources/members/add',
+  /** @deprecated Use TOPOLOGY_MEMBER_ENDPOINTS.REMOVE instead */
   MEMBERS_REMOVE: '/api/v1/resources/members/remove',
 
-  // Hierarchy
+  // Hierarchy (still in use)
   ANCESTORS_QUERY: '/api/v1/resources/ancestors/query',
 
-  // Relationships
+  // Relationships (still in use)
   RELATIONSHIPS_CREATE: '/api/v1/relationships/create',
   RELATIONSHIPS_UPDATE: '/api/v1/relationships/update',
   RELATIONSHIPS_DELETE: '/api/v1/relationships/delete',
   RELATIONSHIPS_RESOURCE_QUERY: '/api/v1/relationships/resource/query',
   RELATIONSHIPS_CYCLE_DETECTION: '/api/v1/relationships/resource/cycle-detection',
+} as const;
+
+// ============================================================================
+// Topology Member Endpoints (Feature: 005-api-reintegration)
+// NEW: Use these instead of the deprecated /api/v1/resources/members/* endpoints
+// ============================================================================
+
+const TOPOLOGY_MEMBER_ENDPOINTS = {
+  QUERY: '/api/v1/topologies/members/query',
+  ADD: '/api/v1/topologies/members/add',
+  REMOVE: '/api/v1/topologies/members/remove',
 } as const;
 
 // ============================================================================
@@ -69,6 +93,7 @@ const TOPOLOGY_CRUD_ENDPOINTS = {
   GET: '/api/v1/topologies/get',
   UPDATE: '/api/v1/topologies/update',
   DELETE: '/api/v1/topologies/delete',
+  GRAPH_QUERY: '/api/v1/topologies/graph/query',
 } as const;
 
 // ============================================================================
@@ -78,6 +103,7 @@ const TOPOLOGY_CRUD_ENDPOINTS = {
 export const topologyApi = {
   /**
    * Query topology graph data for a subgraph
+   * @deprecated Use queryGraph with topologyId instead (Feature: 005-api-reintegration)
    */
   queryTopology: (params: TopologyQueryRequest): Promise<TopologyQueryResponse> =>
     apiPost<TopologyQueryRequest, TopologyQueryResponse>(
@@ -86,16 +112,30 @@ export const topologyApi = {
     ),
 
   /**
-   * Query paginated member list for a topology
+   * Query topology graph data (NEW endpoint)
+   * POST /api/v1/topologies/graph/query
+   * @param params - Uses topologyId (not resourceId)
    */
-  queryMembers: (params: MembersQueryRequest): Promise<PageResult<TopologyMember>> =>
-    apiPost<MembersQueryRequest, PageResult<TopologyMember>>(
-      ENDPOINTS.MEMBERS_QUERY,
+  queryGraph: (params: TopologyGraphQueryRequest): Promise<TopologyQueryResponse> =>
+    apiPost<TopologyGraphQueryRequest, TopologyQueryResponse>(
+      TOPOLOGY_CRUD_ENDPOINTS.GRAPH_QUERY,
+      params
+    ),
+
+  /**
+   * Query paginated member list for a topology
+   * Uses NEW endpoint: POST /api/v1/topologies/members/query
+   * @param params - Uses topologyId (not resourceId)
+   */
+  queryMembers: (params: TopologyMembersQueryRequest): Promise<PageResult<TopologyMember>> =>
+    apiPost<TopologyMembersQueryRequest, PageResult<TopologyMember>>(
+      TOPOLOGY_MEMBER_ENDPOINTS.QUERY,
       params
     ),
 
   /**
    * Query members with their relationships
+   * @deprecated This still uses the old endpoint - may be migrated later
    */
   queryMembersWithRelations: (params: MembersQueryRequest): Promise<TopologyQueryResponse> =>
     apiPost<MembersQueryRequest, TopologyQueryResponse>(
@@ -104,20 +144,24 @@ export const topologyApi = {
     ),
 
   /**
-   * Add members to a subgraph
+   * Add members to a topology
+   * Uses NEW endpoint: POST /api/v1/topologies/members/add
+   * @param params - Uses topologyId (not resourceId)
    */
-  addMembers: (params: MembersAddRequest): Promise<MembersAddResponse> =>
-    apiPost<MembersAddRequest, MembersAddResponse>(
-      ENDPOINTS.MEMBERS_ADD,
+  addMembers: (params: TopologyMembersAddRequest): Promise<MembersAddResponse> =>
+    apiPost<TopologyMembersAddRequest, MembersAddResponse>(
+      TOPOLOGY_MEMBER_ENDPOINTS.ADD,
       params
     ),
 
   /**
-   * Remove members from a subgraph
+   * Remove members from a topology
+   * Uses NEW endpoint: POST /api/v1/topologies/members/remove
+   * @param params - Uses topologyId (not resourceId)
    */
-  removeMembers: (params: MembersRemoveRequest): Promise<void> =>
-    apiPost<MembersRemoveRequest, void>(
-      ENDPOINTS.MEMBERS_REMOVE,
+  removeMembers: (params: TopologyMembersRemoveRequest): Promise<void> =>
+    apiPost<TopologyMembersRemoveRequest, void>(
+      TOPOLOGY_MEMBER_ENDPOINTS.REMOVE,
       params
     ),
 

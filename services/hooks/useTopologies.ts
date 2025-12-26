@@ -11,10 +11,7 @@ import type {
   TopologyDTO,
   TopologyListItem,
 } from '../api/types';
-import { parseTopologyAttributes as parseAttrs } from '../api/types';
-
-// Default operator ID (hardcoded until auth is implemented)
-const DEFAULT_OPERATOR_ID = 1;
+import { parseTopologyAttributes as parseAttrs, DEFAULT_OPERATOR_ID } from '../api/types';
 
 export interface TopologyFilters {
   keyword?: string;

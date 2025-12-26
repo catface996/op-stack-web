@@ -76,7 +76,7 @@ export async function apiPost<TReq, TRes>(
 
   // In development mode, inject default operatorId (gateway handles this in other environments)
   const requestData = isDevelopment
-    ? { ...data, operatorId: 0 }
+    ? { ...data, operatorId: 1 }
     : data;
 
   let response: Response;
@@ -133,7 +133,7 @@ export async function apiPostRaw<TReq, TRes>(
 
   // In development mode, inject default operatorId (gateway handles this in other environments)
   const requestData = isDevelopment
-    ? { ...data, operatorId: 0 }
+    ? { ...data, operatorId: 1 }
     : data;
 
   let response: Response;

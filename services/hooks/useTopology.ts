@@ -78,15 +78,15 @@ export function useTopology(
     setLoading(true);
     setError(null);
 
-    console.log('[useTopology] Making API call to queryTopology with:', {
-      resourceId: subgraphId,
+    console.log('[useTopology] Making API call to queryGraph with:', {
+      topologyId: subgraphId,
       depth: mergedOptions.depth,
       includeRelationships: mergedOptions.includeRelationships,
     });
 
     try {
-      const response = await topologyApi.queryTopology({
-        resourceId: subgraphId,  // API uses resourceId parameter
+      const response = await topologyApi.queryGraph({
+        topologyId: subgraphId,  // NEW: Uses topologyId parameter
         depth: mergedOptions.depth,
         includeRelationships: mergedOptions.includeRelationships,
       });

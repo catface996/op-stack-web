@@ -3,16 +3,18 @@
  *
  * Fetch resource list with pagination, filtering and search support
  * Feature: 001-resource-api-integration
+ * Updated: 005-api-reintegration - Now uses nodeApi internally
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { resourceApi } from '../api/resources';
-import type { ResourceDTO, ResourceStatus, ListResourcesRequest } from '../api/types';
+import { nodeApi } from '../api/nodes';
+import type { ResourceDTO, NodeDTO, ResourceStatus, QueryNodesRequest } from '../api/types';
 
 export interface ResourceFilters {
-  resourceTypeId?: number;
+  resourceTypeId?: number;  // Maps to nodeTypeId in new API
   status?: ResourceStatus;
   keyword?: string;
+  topologyId?: number;  // T043: New filter for topology membership
 }
 
 export interface Pagination {
@@ -35,7 +37,30 @@ export interface UseResourcesResult {
 const DEFAULT_PAGE_SIZE = 10;
 
 /**
+ * Convert NodeDTO to ResourceDTO for backward compatibility
+ * T033: Adapter function to maintain existing component contracts
+ */
+function nodeToResource(node: NodeDTO): ResourceDTO {
+  return {
+    id: node.id,
+    name: node.name,
+    description: node.description,
+    resourceTypeId: node.nodeTypeId,
+    resourceTypeName: node.nodeTypeName,
+    resourceTypeCode: node.nodeTypeCode,
+    status: node.status,
+    statusDisplay: node.statusDisplay,
+    attributes: node.attributes,
+    version: node.version,
+    createdAt: node.createdAt,
+    updatedAt: node.updatedAt,
+    createdBy: node.createdBy,
+  };
+}
+
+/**
  * Hook for fetching resource list
+ * T033: Now uses nodeApi internally with backward-compatible interface
  */
 export function useResources(filters: ResourceFilters = {}): UseResourcesResult {
   const [resources, setResources] = useState<ResourceDTO[]>([]);
@@ -56,14 +81,15 @@ export function useResources(filters: ResourceFilters = {}): UseResourcesResult 
     setLoading(true);
     setError(null);
 
-    const params: ListResourcesRequest = {
+    // T033: Build QueryNodesRequest from ResourceFilters
+    const params: QueryNodesRequest = {
       page,
       size,
     };
 
-    // Only add filter params with values
+    // Map resourceTypeId to nodeTypeId
     if (filters.resourceTypeId !== undefined) {
-      params.resourceTypeId = filters.resourceTypeId;
+      params.nodeTypeId = filters.resourceTypeId;
     }
     if (filters.status) {
       params.status = filters.status;
@@ -71,16 +97,22 @@ export function useResources(filters: ResourceFilters = {}): UseResourcesResult 
     if (filters.keyword?.trim()) {
       params.keyword = filters.keyword.trim();
     }
+    // T043: Support topology filter
+    if (filters.topologyId !== undefined) {
+      params.topologyId = filters.topologyId;
+    }
 
     try {
-      const result = await resourceApi.list(params);
+      // T033: Use nodeApi instead of resourceApi
+      const result = await nodeApi.query(params);
 
       // Check if this is the latest request
       if (currentRequestId !== requestIdRef.current) {
         return;
       }
 
-      setResources(result.content);
+      // Convert NodeDTO to ResourceDTO for backward compatibility
+      setResources(result.content.map(nodeToResource));
       setPagination({
         page: result.page,
         size: result.size,
@@ -102,13 +134,13 @@ export function useResources(filters: ResourceFilters = {}): UseResourcesResult 
         setLoading(false);
       }
     }
-  }, [filters.resourceTypeId, filters.status, filters.keyword]);
+  }, [filters.resourceTypeId, filters.status, filters.keyword, filters.topologyId]);
 
   // Reset to first page when filters change
   useEffect(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
     fetchResources(1, pagination.size);
-  }, [filters.resourceTypeId, filters.status, filters.keyword, pagination.size, fetchResources]);
+  }, [filters.resourceTypeId, filters.status, filters.keyword, filters.topologyId, pagination.size, fetchResources]);
 
   const setPage = useCallback((page: number) => {
     setPagination(prev => ({ ...prev, page }));

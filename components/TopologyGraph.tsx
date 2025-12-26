@@ -53,6 +53,14 @@ interface LinkingState {
   sourcePort: 'top' | 'bottom';
 }
 
+/** Link data for editing */
+interface EditableLinkData {
+  source: string;
+  target: string;
+  type: string;
+  relationshipId?: number;
+}
+
 interface TopologyGraphProps {
   /** Static data - used when resourceId is not provided */
   data?: Topology;
@@ -62,6 +70,10 @@ interface TopologyGraphProps {
   onNodeClick?: (nodeId: string) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
   onCreateLink?: (link: { source: string; target: string; type: string }) => void;
+  /** Callback when updating a link type */
+  onUpdateLink?: (link: { source: string; target: string; oldType: string; newType: string; relationshipId?: number }) => void;
+  /** Callback when deleting a link */
+  onDeleteLink?: (link: { source: string; target: string; type: string; relationshipId?: number }) => void;
   showLegend?: boolean;
   /** Callback when navigating to a subgraph */
   onNavigateToSubgraph?: (subgraphId: number) => void;
@@ -118,6 +130,8 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
   onNodeClick = () => {},
   onNodeDoubleClick,
   onCreateLink,
+  onUpdateLink,
+  onDeleteLink,
   showLegend = true,
   onNavigateToSubgraph,
 }) => {
@@ -135,9 +149,15 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
   const [linkCreatedMessage, setLinkCreatedMessage] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
+  // Link edit modal state
+  const [selectedLink, setSelectedLink] = useState<EditableLinkData | null>(null);
+  const [showLinkEditModal, setShowLinkEditModal] = useState(false);
+
   const onNodeClickRef = useRef(onNodeClick);
   const onNodeDoubleClickRef = useRef(onNodeDoubleClick);
   const onCreateLinkRef = useRef(onCreateLink);
+  const onUpdateLinkRef = useRef(onUpdateLink);
+  const onDeleteLinkRef = useRef(onDeleteLink);
   const onNavigateToSubgraphRef = useRef(onNavigateToSubgraph);
 
   // Fetch topology data from API when resourceId is provided
@@ -170,6 +190,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
           target: l.target,
           type: l.type as TopologyLink['type'],
           confidence: l.confidence,
+          relationshipId: l.relationshipId,
         })),
       }
     : staticData ?? null;
@@ -233,8 +254,49 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
     onNodeClickRef.current = onNodeClick;
     onNodeDoubleClickRef.current = onNodeDoubleClick;
     onCreateLinkRef.current = onCreateLink;
+    onUpdateLinkRef.current = onUpdateLink;
+    onDeleteLinkRef.current = onDeleteLink;
     onNavigateToSubgraphRef.current = onNavigateToSubgraph;
-  }, [onNodeClick, onNodeDoubleClick, onCreateLink, onNavigateToSubgraph]);
+  }, [onNodeClick, onNodeDoubleClick, onCreateLink, onUpdateLink, onDeleteLink, onNavigateToSubgraph]);
+
+  // Handle link double-click to open edit modal
+  const handleLinkDoubleClick = useCallback((linkData: EditableLinkData) => {
+    setSelectedLink(linkData);
+    setShowLinkEditModal(true);
+  }, []);
+
+  // Handle link type update
+  const handleUpdateLinkType = useCallback((newType: string) => {
+    if (selectedLink && onUpdateLinkRef.current) {
+      onUpdateLinkRef.current({
+        source: selectedLink.source,
+        target: selectedLink.target,
+        oldType: selectedLink.type,
+        newType,
+        relationshipId: selectedLink.relationshipId,
+      });
+    }
+    setShowLinkEditModal(false);
+    setSelectedLink(null);
+  }, [selectedLink]);
+
+  // Handle link deletion
+  const handleDeleteLink = useCallback(() => {
+    if (selectedLink && onDeleteLinkRef.current) {
+      onDeleteLinkRef.current({
+        source: selectedLink.source,
+        target: selectedLink.target,
+        type: selectedLink.type,
+        relationshipId: selectedLink.relationshipId,
+      });
+    }
+    setShowLinkEditModal(false);
+    setSelectedLink(null);
+  }, [selectedLink]);
+
+  // Ref for link double-click handler (used in D3 effect)
+  const handleLinkDoubleClickRef = useRef(handleLinkDoubleClick);
+  handleLinkDoubleClickRef.current = handleLinkDoubleClick;
 
   // 高亮活跃节点
   useEffect(() => {
@@ -376,8 +438,10 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
     };
 
     // 构建树形结构的子节点
+    // Note: Do NOT clear visited between root nodes to prevent duplicate nodes
+    // If a node is reachable from multiple roots, it should only appear once
+    visited.clear(); // Clear once at the start
     const treeChildren = rootNodes.map(n => {
-      visited.clear();
       return buildHierarchy(n.id);
     }).filter(Boolean);
 
@@ -1208,6 +1272,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       .attr("stroke-width", 2)
       .attr("stroke", "#0891b2")
       .attr("opacity", 0.7)
+      .attr("cursor", "pointer")
       .attr("d", (d: any) => {
         // 从源节点底部端口到目标节点顶部端口
         const sx = d.source.x;
@@ -1216,6 +1281,23 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         const ty = d.target.y - rectHeight / 2; // 顶部端口
         const my = (sy + ty) / 2;
         return `M${sx},${sy} C${sx},${my} ${tx},${my} ${tx},${ty}`;
+      })
+      .on("dblclick", (e: any, d: any) => {
+        e.stopPropagation();
+        const sourceId = d.source.data.id;
+        const targetId = d.target.data.id;
+        // Find the original link data to get the relationship ID
+        const originalLink = data.links.find(l => {
+          const s = typeof l.source === 'object' ? (l.source as any).id : l.source;
+          const t = typeof l.target === 'object' ? (l.target as any).id : l.target;
+          return s === sourceId && t === targetId;
+        });
+        handleLinkDoubleClickRef.current({
+          source: sourceId,
+          target: targetId,
+          type: originalLink?.type || 'call',
+          relationshipId: originalLink?.relationshipId,
+        });
       });
 
     // 添加多个流动粒子
@@ -1258,7 +1340,8 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         source: typeof l.source === 'object' ? (l.source as any).id : l.source,
         target: typeof l.target === 'object' ? (l.target as any).id : l.target,
         type: l.type || 'call',
-        confidence: l.confidence
+        confidence: l.confidence,
+        relationshipId: l.relationshipId,
       }))
       .filter(l => {
         // 非 call 类型总是显示
@@ -1266,6 +1349,16 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         // call 类型：只有不在树中的才额外显示
         return !renderedCallLinks.has(`${l.source}->${l.target}`);
       });
+
+    // Create a map to lookup relationship IDs by source-target pair
+    const linkRelationshipMap = new Map<string, number>();
+    data.links.forEach(l => {
+      const source = typeof l.source === 'object' ? (l.source as any).id : l.source;
+      const target = typeof l.target === 'object' ? (l.target as any).id : l.target;
+      if (l.relationshipId) {
+        linkRelationshipMap.set(`${source}->${target}`, l.relationshipId);
+      }
+    });
 
     // 创建节点位置映射
     const nodePositions = new Map<string, { x: number, y: number }>();
@@ -1292,6 +1385,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         if (d.type === 'deployment') return 0.3;
         return 0.5;
       })
+      .attr("cursor", "pointer")
       .attr("d", d => {
         const source = nodePositions.get(d.source)!;
         const target = nodePositions.get(d.target)!;
@@ -1308,6 +1402,15 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         const dy = ty - sy;
         const dr = Math.sqrt(dx * dx + dy * dy) * 0.3;
         return `M${sx},${sy} Q${mx + dr * 0.3},${my} ${tx},${ty}`;
+      })
+      .on("dblclick", (e: any, d: any) => {
+        e.stopPropagation();
+        handleLinkDoubleClickRef.current({
+          source: d.source,
+          target: d.target,
+          type: d.type || 'call',
+          relationshipId: d.relationshipId,
+        });
       });
 
     // 用于更新连接线的函数
@@ -1667,6 +1770,62 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Link edit modal (double-click on link) */}
+      {showLinkEditModal && selectedLink && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowLinkEditModal(false); setSelectedLink(null); }}>
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-2xl w-80" onClick={e => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-lg mb-2">Edit Link</h3>
+            <p className="text-slate-400 text-sm mb-4">
+              From <span className="text-cyan-400">{getNodeName(selectedLink.source)}</span> to <span className="text-cyan-400">{getNodeName(selectedLink.target)}</span>
+            </p>
+            <p className="text-slate-500 text-xs mb-4">
+              Current type: <span className="text-white font-medium">{LINK_TYPES.find(l => l.value === selectedLink.type)?.label || selectedLink.type}</span>
+            </p>
+            <div className="space-y-2 mb-4">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Change to:</p>
+              {LINK_TYPES.map(linkType => (
+                <button
+                  key={linkType.value}
+                  onClick={() => handleUpdateLinkType(linkType.value)}
+                  disabled={linkType.value === selectedLink.type}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
+                    linkType.value === selectedLink.type
+                      ? 'bg-slate-800/50 border-slate-700/50 opacity-50 cursor-not-allowed'
+                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="w-8 h-1 rounded" style={{ backgroundColor: linkType.color }}></div>
+                  <div>
+                    <div className="text-white font-medium text-sm">{linkType.label}</div>
+                    <div className="text-slate-500 text-xs">{linkType.description}</div>
+                  </div>
+                  {linkType.value === selectedLink.type && (
+                    <span className="ml-auto text-cyan-400 text-xs">Current</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="border-t border-slate-700 pt-4 flex flex-col gap-2">
+              <button
+                onClick={handleDeleteLink}
+                className="w-full py-2 px-4 bg-red-600/20 hover:bg-red-600/30 border border-red-600/50 rounded-lg text-red-400 hover:text-red-300 text-sm font-medium transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete Link
+              </button>
+              <button
+                onClick={() => { setShowLinkEditModal(false); setSelectedLink(null); }}
+                className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

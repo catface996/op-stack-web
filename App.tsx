@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   INITIAL_TOPOLOGY,
   generateTeamForNode,
@@ -15,10 +16,10 @@ import {
   INITIAL_DISCOVERED_DELTA,
   RAW_SCAN_PAYLOADS
 } from './services/mockData';
-import { 
-  Team, 
-  Agent, 
-  LogMessage, 
+import {
+  Team,
+  Agent,
+  LogMessage,
   AgentStatus,
   TopologyNode,
   TopologyGroup,
@@ -63,6 +64,9 @@ import ScannerView from './components/ScannerView';
 import AuthPage, { UserInfo } from './components/AuthPage';
 import { SettingsModal, AppSettings } from './components/SettingsModal';
 import GlobalChat from './components/GlobalChat';
+import Layout from './components/Layout';
+import NotFound from './components/NotFound';
+import { ROUTES } from './services/routes';
 import { Activity, Brain, Database, Network, FileText, LogOut, Settings, Play, Square, Home, Radar, Users, Sparkles, X, FileSearch, Check, Wand2 } from 'lucide-react';
 
 // 本地存储的键名
@@ -70,7 +74,120 @@ const AUTH_STORAGE_KEY = 'entropyops_auth';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Wrapper components for route-based rendering with useParams
+const TopologyDetailWrapper: React.FC<{
+  onViewResource: (resourceId: number) => void;
+  topologyGroups: TopologyGroup[];
+  topology: { nodes: TopologyNode[]; links: TopologyLink[] };
+  diagnosisScope: TopologyGroup | null;
+  isSimulating: boolean;
+  onDiagnose: (group: TopologyGroup) => void;
+  onAddNode: (nodeId: string) => void;
+  onRemoveNode: (nodeId: string) => void;
+  onCreateLink: (link: { source: string; target: string; type: string }) => void;
+}> = ({ onViewResource, topologyGroups, topology, diagnosisScope, isSimulating, onDiagnose, onAddNode, onRemoveNode, onCreateLink }) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  if (!id) return <NotFound />;
+
+  const topologyIdNum = parseInt(id, 10);
+
+  // If numeric ID, use API-based detail view
+  if (!isNaN(topologyIdNum)) {
+    return (
+      <TopologyDetailView
+        topologyId={topologyIdNum}
+        onBack={() => navigate(-1)}
+        onViewResource={onViewResource}
+      />
+    );
+  }
+
+  // Fallback to legacy SubGraphCanvas for non-numeric IDs (mock data)
+  const activeTg = topologyGroups.find(tg => tg.id === id);
+  if (!activeTg) return <NotFound />;
+
+  return (
+    <SubGraphCanvas
+      topologyGroup={activeTg}
+      globalTopology={topology}
+      activeScopeId={diagnosisScope?.id}
+      isSimulating={isSimulating}
+      onBack={() => navigate(-1)}
+      onDiagnose={() => onDiagnose(activeTg)}
+      onNavigateToDiagnosis={() => navigate('/diagnosis')}
+      onAddNode={onAddNode}
+      onRemoveNode={onRemoveNode}
+      onViewResource={(n) => navigate(`/resources/${n.id}`)}
+      onCreateLink={onCreateLink}
+    />
+  );
+};
+
+const ResourceDetailWrapper: React.FC<{
+  topology: { nodes: TopologyNode[]; links: TopologyLink[] };
+  teams: Team[];
+  topologyGroups: TopologyGroup[];
+  onUpdateNode: (node: TopologyNode) => void;
+  onAddWorker: (teamId: string, workerTemplate: { name: string; specialty: string }) => void;
+  onRemoveWorker: (teamId: string, agentId: string) => void;
+}> = ({ topology, teams, topologyGroups, onUpdateNode, onAddWorker, onRemoveWorker }) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  if (!id) return <NotFound />;
+
+  const rNode = topology.nodes.find(n => n.id === id);
+  if (!rNode) return <NotFound />;
+
+  return (
+    <ResourceDetailView
+      node={rNode}
+      team={teams.find(t => t.resourceId === rNode.id)}
+      associatedTopologyGroups={topologyGroups.filter(tg => tg.nodeIds.includes(rNode.id))}
+      onBack={() => navigate(-1)}
+      onNavigateToTopology={(topologyId) => navigate(`/topologies/${topologyId}`)}
+      onUpdateNode={onUpdateNode}
+      onUpdateAgentConfig={() => {}}
+      onAddWorker={onAddWorker}
+      onRemoveWorker={onRemoveWorker}
+    />
+  );
+};
+
+const ApiResourceDetailWrapper: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  if (!id) return <NotFound />;
+
+  const resourceId = parseInt(id, 10);
+  if (isNaN(resourceId)) return <NotFound />;
+
+  return (
+    <ApiResourceDetailView
+      resourceId={resourceId}
+      onBack={() => navigate(-1)}
+      onNavigateToTopology={(topologyId) => navigate(`/topologies/${topologyId}`)}
+    />
+  );
+};
+
+const ReportDetailWrapper: React.FC<{ reports: Report[] }> = ({ reports }) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  if (!id) return <NotFound />;
+
+  const report = reports.find(r => r.id === id);
+  if (!report) return <NotFound />;
+
+  return <ReportDetailView report={report} onBack={() => navigate(-1)} />;
+};
+
 const App: React.FC = () => {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -120,14 +237,8 @@ const App: React.FC = () => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
   }, []);
 
-  // Core view switching
-  const [currentView, setCurrentView] = useState<'dashboard' | 'diagnosis' | 'resources' | 'resource-detail' | 'api-resource-detail' | 'topologies' | 'topology-detail' | 'agents' | 'prompts' | 'models' | 'tools' | 'reports' | 'report-detail' | 'report-templates' | 'discovery' | 'scanner'>('dashboard');
   const [discoverySubView, setDiscoverySubView] = useState<'connectors' | 'inbox'>('connectors');
 
-  const [selectedTopologyId, setSelectedTopologyId] = useState<string | null>(null);
-  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
-  const [selectedApiResourceId, setSelectedApiResourceId] = useState<number | null>(null);
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [diagnosisScope, setDiagnosisScope] = useState<TopologyGroup | null>(null);
   const [scannerLogs, setScannerLogs] = useState<LogMessage[]>([]);
@@ -149,7 +260,7 @@ const App: React.FC = () => {
   const [isSimulating, setIsSimulating] = useState(false);
   const [focusTarget, setFocusTarget] = useState<{ agentId: string; ts: number } | null>(null);
   const abortRef = useRef(false);
-  
+
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(280);
   const [rightSidebarWidth, setRightSidebarWidth] = useState(340);
   const [isResizingLeft, setIsResizingLeft] = useState(false);
@@ -537,7 +648,7 @@ const App: React.FC = () => {
 
   const handleCreateFinalReport = (newReport: Report) => {
       setReports(prev => [...prev, newReport]);
-      setCurrentView('reports');
+      navigate(ROUTES.REPORTS);
       setIsGeneratingReport(false);
   };
 
@@ -547,7 +658,7 @@ const App: React.FC = () => {
 
     // Navigate to scanner view - don't auto-scan, just show welcome message
     setSelectedSourceId(sourceId);
-    setCurrentView('scanner');
+    navigate('/scanner');
     setScannerLogs([
       {
         id: 'sys-welcome',
@@ -637,184 +748,146 @@ const App: React.FC = () => {
     }));
   }, []);
 
-  const renderMainContent = () => {
-    switch (currentView) {
-      case 'dashboard':
-        return <Dashboard nodes={topology.nodes} teams={teams} recentSessions={INITIAL_SESSIONS} isSimulating={isSimulating} onNavigateToDiagnosis={() => setCurrentView('diagnosis')} onLoadSession={(s) => { setCurrentView('diagnosis'); setUserQuery(s.query); }} />;
-      case 'topologies':
-        return <TopologiesManagement activeScopeId={diagnosisScope?.id} isSimulating={isSimulating} onEnter={(id) => { setSelectedTopologyId(id); setCurrentView('topology-detail'); }} onNavigateToDiagnosis={() => setCurrentView('diagnosis')} />;
-      case 'topology-detail':
-        // Try to use API-based detail view if selectedTopologyId is a numeric string
-        const topologyIdNum = selectedTopologyId ? parseInt(selectedTopologyId, 10) : NaN;
-        if (!isNaN(topologyIdNum)) {
-          return (
-            <TopologyDetailView
-              topologyId={topologyIdNum}
-              onBack={() => setCurrentView('topologies')}
-              onViewResource={(resourceId) => {
-                setSelectedApiResourceId(resourceId);
-                setCurrentView('api-resource-detail');
-              }}
-            />
-          );
-        }
-        // Fallback to legacy SubGraphCanvas for non-numeric IDs (mock data)
-        const activeTg = topologyGroups.find(tg => tg.id === selectedTopologyId);
-        return activeTg ? <SubGraphCanvas topologyGroup={activeTg} globalTopology={topology} activeScopeId={diagnosisScope?.id} isSimulating={isSimulating} onBack={() => setCurrentView('topologies')} onDiagnose={() => { setDiagnosisScope(activeTg); setCurrentView('diagnosis'); }} onNavigateToDiagnosis={() => setCurrentView('diagnosis')} onAddNode={(nid) => setTopologyGroups(p => p.map(g => g.id === selectedTopologyId ? {...g, nodeIds: [...g.nodeIds, nid]} : g))} onRemoveNode={(nid) => setTopologyGroups(p => p.map(g => g.id === selectedTopologyId ? {...g, nodeIds: g.nodeIds.filter(i => i !== nid)} : g))} onViewResource={(n) => { setSelectedResourceId(n.id); setCurrentView('resource-detail'); }} onCreateLink={handleCreateLink} /> : null;
-      case 'resources':
-        return <ResourceManagement onViewDetail={(resource) => { setSelectedApiResourceId(resource.id); setCurrentView('api-resource-detail'); }} />;
-      case 'api-resource-detail':
-        return selectedApiResourceId ? <ApiResourceDetailView resourceId={selectedApiResourceId} onBack={() => setCurrentView('resources')} /> : null;
-      case 'resource-detail':
-        const rNode = topology.nodes.find(n => n.id === selectedResourceId);
-        const handleAddWorker = (teamId: string, workerTemplate: { name: string, specialty: string }) => {
-          const newWorker: Agent = {
-            id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            name: workerTemplate.name,
-            role: AgentRole.WORKER,
-            specialty: workerTemplate.specialty,
-            status: AgentStatus.IDLE,
-            findings: { warnings: 0, critical: 0 },
-            config: {
-              model: 'gemini-2.0-flash',
-              temperature: 0.3,
-              systemInstruction: `You are a specialized ${workerTemplate.specialty} worker agent.`
-            }
-          };
-          setTeams(prev => prev.map(t =>
-            t.id === teamId ? { ...t, members: [...t.members, newWorker] } : t
-          ));
-        };
-        const handleRemoveWorker = (teamId: string, agentId: string) => {
-          setTeams(prev => prev.map(t =>
-            t.id === teamId ? { ...t, members: t.members.filter(m => m.id !== agentId) } : t
-          ));
-        };
-        return rNode ? <ResourceDetailView node={rNode} team={teams.find(t => t.resourceId === rNode.id)} associatedTopologyGroups={topologyGroups.filter(tg => tg.nodeIds.includes(rNode.id))} onBack={() => setCurrentView('resources')} onNavigateToTopology={(id) => { setSelectedTopologyId(id); setCurrentView('topology-detail'); }} onUpdateNode={(n) => setTopology(prev => ({...prev, nodes: prev.nodes.map(x => x.id === n.id ? n : x)}))} onUpdateAgentConfig={() => {}} onAddWorker={handleAddWorker} onRemoveWorker={handleRemoveWorker} /> : null;
-      case 'agents':
-        const handleDeleteAgent = (teamId: string, agentId: string) => {
-          setTeams(prev => prev.map(t =>
-            t.id === teamId ? { ...t, members: t.members.filter(m => m.id !== agentId) } : t
-          ));
-        };
-        const handleUpdateAgentConfig = (teamId: string, agentId: string, config: AgentConfig) => {
-          setTeams(prev => prev.map(t => {
-            if (t.id !== teamId) return t;
-            if (t.supervisor.id === agentId) {
-              return { ...t, supervisor: { ...t.supervisor, config } };
-            }
-            return { ...t, members: t.members.map(m => m.id === agentId ? { ...m, config } : m) };
-          }));
-        };
-        return <AgentManagement teams={teams} onUpdateAgentConfig={handleUpdateAgentConfig} onDeleteAgent={handleDeleteAgent} onManagePrompts={() => setCurrentView('prompts')} onManageModels={() => setCurrentView('models')} onManageTools={() => setCurrentView('tools')} />;
-      case 'prompts':
-        return <PromptManagement prompts={INITIAL_PROMPT_TEMPLATES} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => setCurrentView('agents')} />;
-      case 'models':
-        return <ModelManagement models={INITIAL_MODELS} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => setCurrentView('agents')} />;
-      case 'tools':
-        return <ToolManagement tools={INITIAL_TOOLS} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => setCurrentView('agents')} />;
-      case 'reports':
-        return <ReportManagement reports={reports} onViewReport={(r) => { setSelectedReportId(r.id); setCurrentView('report-detail'); }} onManageTemplates={() => setCurrentView('report-templates')} />;
-      case 'report-detail':
-        const rRep = reports.find(r => r.id === selectedReportId);
-        return rRep ? <ReportDetailView report={rRep} onBack={() => setCurrentView('reports')} /> : null;
-      case 'report-templates':
-        return <ReportTemplateManagement templates={INITIAL_REPORT_TEMPLATES} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => setCurrentView('reports')} />;
-      case 'discovery':
-        return (
-          <div className="flex flex-col h-full bg-slate-950">
-             <div className="flex border-b border-slate-800 bg-slate-900/50 px-6 gap-6">
-                <button onClick={() => setDiscoverySubView('connectors')} className={`py-3 text-sm font-bold border-b-2 transition-all ${discoverySubView === 'connectors' ? 'text-cyan-400 border-cyan-400' : 'text-slate-500 border-transparent hover:text-slate-300'}`}>Connectors</button>
-                <button onClick={() => setDiscoverySubView('inbox')} className={`py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${discoverySubView === 'inbox' ? 'text-cyan-400 border-cyan-400' : 'text-slate-500 border-transparent hover:text-slate-300'}`}>
-                    Inbox {discoveredDelta.nodes.length > 0 && <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>}
-                </button>
-             </div>
-             <div className="flex-1 overflow-hidden">
-                {discoverySubView === 'connectors' ? <DiscoveryManagement sources={discoverySources} agents={[globalAgent, ...teams.flatMap(t => [t.supervisor, ...t.members])]} onAdd={(s) => setDiscoverySources(p => [...p, s])} onUpdate={(s) => setDiscoverySources(p => p.map(x => x.id === s.id ? s : x))} onDelete={(id) => setDiscoverySources(p => p.filter(x => x.id !== id))} onScan={handleScan} /> : <DiscoveryInbox discoveredNodes={discoveredDelta.nodes} discoveredLinks={discoveredDelta.links} onApproveNode={handleApproveNode} onRejectNode={(id) => setDiscoveredDelta(p => ({...p, nodes: p.nodes.filter(n => n.id !== id)}))} onClear={() => setDiscoveredDelta({nodes: [], links: []})} />}
-             </div>
-          </div>
-        );
-      case 'scanner':
-        const selectedSource = discoverySources.find(s => s.id === selectedSourceId);
-        return selectedSource ? (
-          <ScannerView
-            source={selectedSource}
-            managedNodes={topology.nodes}
-            managedLinks={topology.links}
-            discoveredNodes={discoveredDelta.nodes}
-            discoveredLinks={discoveredDelta.links}
-            logs={scannerLogs}
-            isScanning={isSimulating}
-            onBack={() => setCurrentView('discovery')}
-            onSendMessage={handleScannerMessage}
-            onApproveNode={handleApproveNode}
-            onRejectNode={(id) => setDiscoveredDelta(p => ({...p, nodes: p.nodes.filter(n => n.id !== id)}))}
-          />
-        ) : null;
-      case 'diagnosis':
-      default:
-        return (
-          <div className="flex-1 flex h-full overflow-hidden">
-              <aside style={{ width: leftSidebarWidth }} className="bg-slate-900/20 p-2 overflow-y-auto custom-scrollbar text-xs shrink-0">
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 py-2 flex justify-between items-center">
-                      <span>Hierarchy Stack</span>
-                      {diagnosisScope && <button onClick={() => setDiagnosisScope(null)} className="text-cyan-400 hover:text-white transition-colors">Global View</button>}
-                  </div>
-                  <AgentHierarchy globalAgent={globalAgent} teams={activeTeams} activeTeamIds={new Set()} onAgentClick={(agentId) => setFocusTarget({ agentId, ts: Date.now() })} />
-              </aside>
-              {/* 左侧拖拽分隔条 */}
-              <div
-                className="w-1 bg-slate-800 hover:bg-cyan-500 cursor-col-resize transition-colors shrink-0"
-                onMouseDown={() => setIsResizingLeft(true)}
-              />
-              <section className="flex-1 flex flex-col bg-slate-950 min-w-0">
-                  <div className="h-10 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 bg-slate-900/40">
-                      <div className="flex items-center gap-2">
-                        <Activity size={12} className="text-cyan-400" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time collaboration stream</span>
-                      </div>
-                      {diagnosisScope && <div className="text-[9px] px-2 py-0.5 rounded bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 font-bold uppercase">Focus: {diagnosisScope.name}</div>}
-                  </div>
-                  <div className="flex-1 overflow-hidden"><LogStream logs={logs} focusTarget={focusTarget} /></div>
-                  <div className="p-4 bg-slate-900/50 border-t border-slate-800 flex items-center gap-3">
-                      <div className="flex-1 flex items-center gap-3 bg-slate-950 border border-slate-700 rounded-xl px-4">
-                          <Sparkles size={16} className="text-cyan-500" />
-                          <input className="flex-1 h-12 bg-transparent text-sm text-slate-200 focus:outline-none" value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="Submit directive for hierarchical execution..." />
-                      </div>
+  // Worker management handlers
+  const handleAddWorker = useCallback((teamId: string, workerTemplate: { name: string, specialty: string }) => {
+    const newWorker: Agent = {
+      id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: workerTemplate.name,
+      role: AgentRole.WORKER,
+      specialty: workerTemplate.specialty,
+      status: AgentStatus.IDLE,
+      findings: { warnings: 0, critical: 0 },
+      config: {
+        model: 'gemini-2.0-flash',
+        temperature: 0.3,
+        systemInstruction: `You are a specialized ${workerTemplate.specialty} worker agent.`
+      }
+    };
+    setTeams(prev => prev.map(t =>
+      t.id === teamId ? { ...t, members: [...t.members, newWorker] } : t
+    ));
+  }, []);
 
-                      <div className="flex gap-2">
-                          {logs.length > 0 && !isSimulating && diagnosisScope && (
-                             <button
-                                onClick={() => setIsGeneratingReport(true)}
-                                className="h-12 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95"
-                             >
-                                <FileSearch size={14} /> GENERATE REPORT
-                             </button>
-                          )}
-                          {isSimulating ? (
-                            <button onClick={handleAbortDiagnosis} className="h-12 px-8 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95 animate-pulse">
-                              <Square size={14} fill="currentColor" /> ABORT
-                            </button>
-                          ) : (
-                            <button onClick={handleExecuteDiagnosis} className="h-12 px-8 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95">
-                              <Play size={14} fill="currentColor" /> EXECUTE
-                            </button>
-                          )}
-                      </div>
-                  </div>
-              </section>
-              {/* 右侧拖拽分隔条 */}
-              <div
-                className="w-1 bg-slate-800 hover:bg-cyan-500 cursor-col-resize transition-colors shrink-0"
-                onMouseDown={() => setIsResizingRight(true)}
-              />
-              <aside style={{ width: rightSidebarWidth }} className="bg-slate-900/20 relative shrink-0">
-                  <div className="absolute top-0 left-0 w-full h-10 border-b border-slate-800 bg-slate-900/40 z-10 flex items-center px-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Topology Monitor</div>
-                  <TopologyGraph data={dashboardTopology} activeNodeIds={activeNodeIds} onNodeClick={() => {}} onCreateLink={handleCreateLink} showLegend={false} />
-              </aside>
-          </div>
-        );
-    }
+  const handleRemoveWorker = useCallback((teamId: string, agentId: string) => {
+    setTeams(prev => prev.map(t =>
+      t.id === teamId ? { ...t, members: t.members.filter(m => m.id !== agentId) } : t
+    ));
+  }, []);
+
+  const handleDeleteAgent = useCallback((teamId: string, agentId: string) => {
+    setTeams(prev => prev.map(t =>
+      t.id === teamId ? { ...t, members: t.members.filter(m => m.id !== agentId) } : t
+    ));
+  }, []);
+
+  const handleUpdateAgentConfig = useCallback((teamId: string, agentId: string, config: any) => {
+    setTeams(prev => prev.map(t => {
+      if (t.id !== teamId) return t;
+      if (t.supervisor.id === agentId) {
+        return { ...t, supervisor: { ...t.supervisor, config } };
+      }
+      return { ...t, members: t.members.map(m => m.id === agentId ? { ...m, config } : m) };
+    }));
+  }, []);
+
+  // Diagnosis view component
+  const DiagnosisView = () => (
+    <div className="flex-1 flex h-full overflow-hidden">
+        <aside style={{ width: leftSidebarWidth }} className="bg-slate-900/20 p-2 overflow-y-auto custom-scrollbar text-xs shrink-0">
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 py-2 flex justify-between items-center">
+                <span>Hierarchy Stack</span>
+                {diagnosisScope && <button onClick={() => setDiagnosisScope(null)} className="text-cyan-400 hover:text-white transition-colors">Global View</button>}
+            </div>
+            <AgentHierarchy globalAgent={globalAgent} teams={activeTeams} activeTeamIds={new Set()} onAgentClick={(agentId) => setFocusTarget({ agentId, ts: Date.now() })} />
+        </aside>
+        {/* 左侧拖拽分隔条 */}
+        <div
+          className="w-1 bg-slate-800 hover:bg-cyan-500 cursor-col-resize transition-colors shrink-0"
+          onMouseDown={() => setIsResizingLeft(true)}
+        />
+        <section className="flex-1 flex flex-col bg-slate-950 min-w-0">
+            <div className="h-10 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 bg-slate-900/40">
+                <div className="flex items-center gap-2">
+                  <Activity size={12} className="text-cyan-400" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time collaboration stream</span>
+                </div>
+                {diagnosisScope && <div className="text-[9px] px-2 py-0.5 rounded bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 font-bold uppercase">Focus: {diagnosisScope.name}</div>}
+            </div>
+            <div className="flex-1 overflow-hidden"><LogStream logs={logs} focusTarget={focusTarget} /></div>
+            <div className="p-4 bg-slate-900/50 border-t border-slate-800 flex items-center gap-3">
+                <div className="flex-1 flex items-center gap-3 bg-slate-950 border border-slate-700 rounded-xl px-4">
+                    <Sparkles size={16} className="text-cyan-500" />
+                    <input className="flex-1 h-12 bg-transparent text-sm text-slate-200 focus:outline-none" value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="Submit directive for hierarchical execution..." />
+                </div>
+
+                <div className="flex gap-2">
+                    {logs.length > 0 && !isSimulating && diagnosisScope && (
+                       <button
+                          onClick={() => setIsGeneratingReport(true)}
+                          className="h-12 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95"
+                       >
+                          <FileSearch size={14} /> GENERATE REPORT
+                       </button>
+                    )}
+                    {isSimulating ? (
+                      <button onClick={handleAbortDiagnosis} className="h-12 px-8 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95 animate-pulse">
+                        <Square size={14} fill="currentColor" /> ABORT
+                      </button>
+                    ) : (
+                      <button onClick={handleExecuteDiagnosis} className="h-12 px-8 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95">
+                        <Play size={14} fill="currentColor" /> EXECUTE
+                      </button>
+                    )}
+                </div>
+            </div>
+        </section>
+        {/* 右侧拖拽分隔条 */}
+        <div
+          className="w-1 bg-slate-800 hover:bg-cyan-500 cursor-col-resize transition-colors shrink-0"
+          onMouseDown={() => setIsResizingRight(true)}
+        />
+        <aside style={{ width: rightSidebarWidth }} className="bg-slate-900/20 relative shrink-0">
+            <div className="absolute top-0 left-0 w-full h-10 border-b border-slate-800 bg-slate-900/40 z-10 flex items-center px-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Topology Monitor</div>
+            <TopologyGraph data={dashboardTopology} activeNodeIds={activeNodeIds} onNodeClick={() => {}} onCreateLink={handleCreateLink} showLegend={false} />
+        </aside>
+    </div>
+  );
+
+  // Discovery view component
+  const DiscoveryView = () => (
+    <div className="flex flex-col h-full bg-slate-950">
+       <div className="flex border-b border-slate-800 bg-slate-900/50 px-6 gap-6">
+          <button onClick={() => setDiscoverySubView('connectors')} className={`py-3 text-sm font-bold border-b-2 transition-all ${discoverySubView === 'connectors' ? 'text-cyan-400 border-cyan-400' : 'text-slate-500 border-transparent hover:text-slate-300'}`}>Connectors</button>
+          <button onClick={() => setDiscoverySubView('inbox')} className={`py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${discoverySubView === 'inbox' ? 'text-cyan-400 border-cyan-400' : 'text-slate-500 border-transparent hover:text-slate-300'}`}>
+              Inbox {discoveredDelta.nodes.length > 0 && <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>}
+          </button>
+       </div>
+       <div className="flex-1 overflow-hidden">
+          {discoverySubView === 'connectors' ? <DiscoveryManagement sources={discoverySources} agents={[globalAgent, ...teams.flatMap(t => [t.supervisor, ...t.members])]} onAdd={(s) => setDiscoverySources(p => [...p, s])} onUpdate={(s) => setDiscoverySources(p => p.map(x => x.id === s.id ? s : x))} onDelete={(id) => setDiscoverySources(p => p.filter(x => x.id !== id))} onScan={handleScan} /> : <DiscoveryInbox discoveredNodes={discoveredDelta.nodes} discoveredLinks={discoveredDelta.links} onApproveNode={handleApproveNode} onRejectNode={(id) => setDiscoveredDelta(p => ({...p, nodes: p.nodes.filter(n => n.id !== id)}))} onClear={() => setDiscoveredDelta({nodes: [], links: []})} />}
+       </div>
+    </div>
+  );
+
+  // Scanner view component
+  const ScannerViewWrapper = () => {
+    const selectedSource = discoverySources.find(s => s.id === selectedSourceId);
+    if (!selectedSource) return <Navigate to={ROUTES.DISCOVERY} replace />;
+
+    return (
+      <ScannerView
+        source={selectedSource}
+        managedNodes={topology.nodes}
+        managedLinks={topology.links}
+        discoveredNodes={discoveredDelta.nodes}
+        discoveredLinks={discoveredDelta.links}
+        logs={scannerLogs}
+        isScanning={isSimulating}
+        onBack={() => navigate(ROUTES.DISCOVERY)}
+        onSendMessage={handleScannerMessage}
+        onApproveNode={handleApproveNode}
+        onRejectNode={(id) => setDiscoveredDelta(p => ({...p, nodes: p.nodes.filter(n => n.id !== id)}))}
+      />
+    );
   };
 
   if (!isAuthenticated) {
@@ -827,46 +900,68 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans">
-      <header className="h-14 border-b border-slate-800 bg-slate-900 px-4 flex items-center justify-between shrink-0 z-50">
-        <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
-                <Brain className="text-cyan-400" size={20} />
-                <span className="font-bold tracking-tight uppercase tracking-widest"><span className="text-white">Entropy</span><span className="text-cyan-400">OPStack</span></span>
-            </div>
-            <nav className="flex items-center gap-1">
-                {[
-                    { id: 'dashboard', label: 'Dashboard', icon: Home },
-                    { id: 'topologies', label: 'Topologies', icon: Network },
-                    { id: 'resources', label: 'Resources', icon: Database },
-                    { id: 'agents', label: 'Agents', icon: Users },
-                    { id: 'reports', label: 'Reports', icon: FileText },
-                    { id: 'discovery', label: 'Discovery', icon: Radar },
-                ].map(item => (
-                    <button 
-                        key={item.id}
-                        onClick={() => setCurrentView(item.id as any)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${currentView === item.id || (item.id === 'topologies' && currentView === 'topology-detail') || (item.id === 'reports' && (currentView === 'report-detail' || currentView === 'report-templates')) || (item.id === 'agents' && (currentView === 'prompts' || currentView === 'models' || currentView === 'tools')) ? 'bg-slate-800 text-cyan-400 shadow-inner' : 'text-slate-400 hover:text-slate-200'}`}
-                    >
-                        <item.icon size={14} /> {item.label}
-                    </button>
-                ))}
-            </nav>
-        </div>
-        <div className="flex items-center gap-3">
-            {currentUser && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-full">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
-                  {currentUser.name.charAt(0).toUpperCase()}
-                </div>
-                <span className="text-xs text-slate-300 font-medium">{currentUser.name}</span>
-              </div>
-            )}
-            <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-slate-400 hover:text-white transition-colors"><Settings size={18} /></button>
-            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-400 transition-colors" title="Logout"><LogOut size={18} /></button>
-        </div>
-      </header>
-      <main className="flex-1 overflow-hidden relative">{renderMainContent()}</main>
+    <>
+      <Routes>
+        <Route element={<Layout currentUser={currentUser} onLogout={handleLogout} onOpenSettings={() => setIsSettingsOpen(true)} />}>
+          {/* Dashboard */}
+          <Route index element={<Dashboard nodes={topology.nodes} teams={teams} recentSessions={INITIAL_SESSIONS} isSimulating={isSimulating} onNavigateToDiagnosis={() => navigate('/diagnosis')} onLoadSession={(s) => { navigate('/diagnosis'); setUserQuery(s.query); }} />} />
+          <Route path="dashboard" element={<Navigate to="/" replace />} />
+
+          {/* Topologies */}
+          <Route path="topologies" element={<TopologiesManagement activeScopeId={diagnosisScope?.id} isSimulating={isSimulating} onEnter={(id) => navigate(`/topologies/${id}`)} onNavigateToDiagnosis={() => navigate('/diagnosis')} />} />
+          <Route path="topologies/:id" element={
+            <TopologyDetailWrapper
+              onViewResource={(resourceId) => navigate(`/resources/${resourceId}`)}
+              topologyGroups={topologyGroups}
+              topology={topology}
+              diagnosisScope={diagnosisScope}
+              isSimulating={isSimulating}
+              onDiagnose={(group) => { setDiagnosisScope(group); navigate('/diagnosis'); }}
+              onAddNode={(nid) => setTopologyGroups(p => p.map(g => g.nodeIds.includes(nid) ? g : {...g, nodeIds: [...g.nodeIds, nid]}))}
+              onRemoveNode={(nid) => setTopologyGroups(p => p.map(g => ({...g, nodeIds: g.nodeIds.filter(i => i !== nid)})))}
+              onCreateLink={handleCreateLink}
+            />
+          } />
+
+          {/* Resources */}
+          <Route path="resources" element={<ResourceManagement onViewDetail={(resource) => navigate(`/resources/${resource.id}`)} />} />
+          <Route path="resources/:id" element={<ApiResourceDetailWrapper />} />
+
+          {/* Legacy resource detail for mock data */}
+          <Route path="legacy-resources/:id" element={
+            <ResourceDetailWrapper
+              topology={topology}
+              teams={teams}
+              topologyGroups={topologyGroups}
+              onUpdateNode={(n) => setTopology(prev => ({...prev, nodes: prev.nodes.map(x => x.id === n.id ? n : x)}))}
+              onAddWorker={handleAddWorker}
+              onRemoveWorker={handleRemoveWorker}
+            />
+          } />
+
+          {/* Agents */}
+          <Route path="agents" element={<AgentManagement teams={teams} onUpdateAgentConfig={handleUpdateAgentConfig} onDeleteAgent={handleDeleteAgent} onManagePrompts={() => navigate('/agents/prompts')} onManageModels={() => navigate('/agents/models')} onManageTools={() => navigate('/agents/tools')} />} />
+          <Route path="agents/prompts" element={<PromptManagement prompts={INITIAL_PROMPT_TEMPLATES} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => navigate(-1)} />} />
+          <Route path="agents/models" element={<ModelManagement models={INITIAL_MODELS} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => navigate(-1)} />} />
+          <Route path="agents/tools" element={<ToolManagement tools={INITIAL_TOOLS} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => navigate(-1)} />} />
+
+          {/* Reports */}
+          <Route path="reports" element={<ReportManagement reports={reports} onViewReport={(r) => navigate(`/reports/${r.id}`)} onManageTemplates={() => navigate('/reports/templates')} />} />
+          <Route path="reports/templates" element={<ReportTemplateManagement templates={INITIAL_REPORT_TEMPLATES} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => navigate(-1)} />} />
+          <Route path="reports/:id" element={<ReportDetailWrapper reports={reports} />} />
+
+          {/* Discovery */}
+          <Route path="discovery" element={<DiscoveryView />} />
+          <Route path="scanner" element={<ScannerViewWrapper />} />
+
+          {/* Diagnosis */}
+          <Route path="diagnosis" element={<DiagnosisView />} />
+
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+
       {isSettingsOpen && <SettingsModal settings={appSettings} onClose={() => setIsSettingsOpen(false)} onSave={(s) => { setAppSettings(s); setIsSettingsOpen(false); }} />}
       {isGeneratingReport && diagnosisScope && (
           <ReportGenerationModal
@@ -879,18 +974,18 @@ const App: React.FC = () => {
       )}
       {/* Global Chatbot - appears on all pages */}
       <GlobalChat nodes={topology.nodes} groups={topologyGroups} teams={teams} />
-    </div>
+    </>
   );
 };
 
 // --- Report Generation Modal Helper ---
 
-const ReportGenerationModal: React.FC<{ 
-    topology: TopologyGroup, 
-    logs: LogMessage[], 
+const ReportGenerationModal: React.FC<{
+    topology: TopologyGroup,
+    logs: LogMessage[],
     query: string,
-    onClose: () => void, 
-    onSave: (report: Report) => void 
+    onClose: () => void,
+    onSave: (report: Report) => void
 }> = ({ topology, logs, query, onClose, onSave }) => {
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(topology.templateIds?.[0] || null);
     const [isThinking, setIsThinking] = useState(false);
@@ -903,7 +998,7 @@ const ReportGenerationModal: React.FC<{
     const handleGeneratePreview = async () => {
         const tpl = INITIAL_REPORT_TEMPLATES.find(x => x.id === selectedTemplateId);
         if (!tpl) return;
-        
+
         setIsThinking(true);
         const content = await generateStructuredReport(tpl, logs, topology, query);
         setPreviewContent(content);
@@ -932,7 +1027,7 @@ const ReportGenerationModal: React.FC<{
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 block">Select bound template</label>
                         <div className="space-y-2">
                             {boundTemplates.length > 0 ? boundTemplates.map(tpl => (
-                                <button 
+                                <button
                                     key={tpl.id}
                                     onClick={() => setSelectedTemplateId(tpl.id)}
                                     className={`w-full text-left p-4 rounded-xl border transition-all ${selectedTemplateId === tpl.id ? 'bg-indigo-600 border-indigo-500 shadow-xl' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`}
@@ -948,7 +1043,7 @@ const ReportGenerationModal: React.FC<{
                         </div>
 
                         {selectedTemplateId && !previewContent && !isThinking && (
-                            <button 
+                            <button
                                 onClick={handleGeneratePreview}
                                 className="mt-8 w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2"
                             >
@@ -980,7 +1075,7 @@ const ReportGenerationModal: React.FC<{
 
                 <div className="p-5 bg-slate-950/80 border-t border-slate-800 flex justify-end gap-3">
                     <button onClick={onClose} className="px-6 py-2.5 text-slate-400 hover:bg-slate-800 rounded-lg text-xs font-bold">Cancel</button>
-                    <button 
+                    <button
                         disabled={!previewContent}
                         onClick={() => {
                             const tpl = INITIAL_REPORT_TEMPLATES.find(x => x.id === selectedTemplateId);

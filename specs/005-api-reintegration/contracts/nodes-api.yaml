@@ -1,0 +1,299 @@
+openapi: 3.0.1
+info:
+  title: Resource Node Management API
+  description: Resource node CRUD endpoints
+  version: 1.0.0
+
+paths:
+  /api/v1/nodes/query:
+    post:
+      summary: Query node list
+      operationId: queryNodes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryNodesRequest'
+      responses:
+        '200':
+          description: Query successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResultNodeDTO'
+
+  /api/v1/nodes/create:
+    post:
+      summary: Create node
+      operationId: createNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNodeRequest'
+      responses:
+        '201':
+          description: Created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeDTO'
+        '409':
+          description: Name already exists
+
+  /api/v1/nodes/get:
+    post:
+      summary: Get node details
+      operationId: getNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetNodeRequest'
+      responses:
+        '200':
+          description: Query successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeDTO'
+        '404':
+          description: Node not found
+
+  /api/v1/nodes/update:
+    post:
+      summary: Update node
+      operationId: updateNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNodeRequest'
+      responses:
+        '200':
+          description: Update successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeDTO'
+        '404':
+          description: Node not found
+        '409':
+          description: Version conflict
+
+  /api/v1/nodes/delete:
+    post:
+      summary: Delete node
+      operationId: deleteNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteNodeRequest'
+      responses:
+        '200':
+          description: Delete successful
+        '404':
+          description: Node not found
+
+  /api/v1/nodes/types/query:
+    post:
+      summary: Query node types
+      operationId: queryNodeTypes
+      responses:
+        '200':
+          description: Query successful
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NodeTypeDTO'
+
+components:
+  schemas:
+    ResourceStatus:
+      type: string
+      enum: [RUNNING, STOPPED, MAINTENANCE, OFFLINE]
+
+    NodeDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        nodeTypeId:
+          type: integer
+          format: int64
+        nodeTypeName:
+          type: string
+        nodeTypeCode:
+          type: string
+        status:
+          $ref: '#/components/schemas/ResourceStatus'
+        statusDisplay:
+          type: string
+        agentTeamId:
+          type: integer
+          format: int64
+          nullable: true
+        attributes:
+          type: string
+          nullable: true
+        version:
+          type: integer
+        createdBy:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    NodeTypeDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    QueryNodesRequest:
+      type: object
+      properties:
+        nodeTypeId:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/ResourceStatus'
+        keyword:
+          type: string
+        topologyId:
+          type: integer
+          format: int64
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+
+    CreateNodeRequest:
+      type: object
+      required: [operatorId, name, nodeTypeId]
+      properties:
+        operatorId:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        nodeTypeId:
+          type: integer
+          format: int64
+        agentTeamId:
+          type: integer
+          format: int64
+        attributes:
+          type: string
+          maxLength: 4000
+
+    GetNodeRequest:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+
+    UpdateNodeRequest:
+      type: object
+      required: [operatorId, id, version]
+      properties:
+        operatorId:
+          type: integer
+          format: int64
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        agentTeamId:
+          type: integer
+          format: int64
+        attributes:
+          type: string
+          maxLength: 4000
+        version:
+          type: integer
+
+    DeleteNodeRequest:
+      type: object
+      required: [operatorId, id]
+      properties:
+        operatorId:
+          type: integer
+          format: int64
+        id:
+          type: integer
+          format: int64
+
+    PageResultNodeDTO:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeDTO'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        first:
+          type: boolean
+        last:
+          type: boolean

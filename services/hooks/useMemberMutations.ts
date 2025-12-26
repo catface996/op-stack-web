@@ -3,6 +3,7 @@
  *
  * Provides add and remove operations for topology members
  * Feature: 003-topologies-management
+ * Updated: 005-api-reintegration - Uses topologyId instead of resourceId
  */
 
 import { useState, useCallback } from 'react';
@@ -15,9 +16,9 @@ export interface UseMemberMutationsResult {
   checkingCycle: boolean;
   error: string | null;
   cycleError: CycleDetectionResponse | null;
-  add: (subgraphId: number, memberIds: number[]) => Promise<MembersAddResponse | null>;
-  remove: (subgraphId: number, memberIds: number[]) => Promise<boolean>;
-  checkCycle: (subgraphId: number, memberIds: number[]) => Promise<CycleDetectionResponse>;
+  add: (topologyId: number, memberIds: number[]) => Promise<MembersAddResponse | null>;
+  remove: (topologyId: number, memberIds: number[]) => Promise<boolean>;
+  checkCycle: (topologyId: number, memberIds: number[]) => Promise<CycleDetectionResponse>;
   clearError: () => void;
   clearCycleError: () => void;
 }
@@ -42,17 +43,20 @@ export function useMemberMutations(): UseMemberMutationsResult {
 
   /**
    * Check for circular references before adding members
+   * T028: Still uses resourceId for cycle detection endpoint (unchanged)
    */
   const checkCycle = useCallback(async (
-    subgraphId: number,
+    topologyId: number,
     memberIds: number[]
   ): Promise<CycleDetectionResponse> => {
     setCheckingCycle(true);
     setCycleError(null);
 
     try {
+      // Note: Cycle detection endpoint still uses resourceId
+      // This is the relationships endpoint, not topology member endpoint
       const result = await topologyApi.detectCycles({
-        resourceId: subgraphId,  // API uses resourceId parameter
+        resourceId: topologyId,
         candidateMemberIds: memberIds,
       });
 
@@ -74,9 +78,11 @@ export function useMemberMutations(): UseMemberMutationsResult {
 
   /**
    * Add members to a topology
+   * T026: Updated to use topologyId instead of resourceId
+   * Returns true on success, null on failure
    */
   const add = useCallback(async (
-    subgraphId: number,
+    topologyId: number,
     memberIds: number[]
   ): Promise<MembersAddResponse | null> => {
     if (memberIds.length === 0) {
@@ -87,12 +93,15 @@ export function useMemberMutations(): UseMemberMutationsResult {
     setError(null);
 
     try {
-      const result = await topologyApi.addMembers({
-        resourceId: subgraphId,  // API uses resourceId parameter
-        memberIds,
+      // T026: Uses new endpoint with topologyId
+      // Note: Backend returns void (ResultVoid), so result may be undefined
+      await topologyApi.addMembers({
+        topologyId,  // NEW: Uses topologyId parameter
+        nodeIds: memberIds,  // Backend expects nodeIds field
       });
 
-      return result;
+      // Return a truthy value to indicate success (backend returns void)
+      return { addedCount: memberIds.length, members: [] };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to add members';
       setError(message);
@@ -105,9 +114,10 @@ export function useMemberMutations(): UseMemberMutationsResult {
 
   /**
    * Remove members from a topology
+   * T027: Updated to use topologyId instead of resourceId
    */
   const remove = useCallback(async (
-    subgraphId: number,
+    topologyId: number,
     memberIds: number[]
   ): Promise<boolean> => {
     if (memberIds.length === 0) {
@@ -118,9 +128,10 @@ export function useMemberMutations(): UseMemberMutationsResult {
     setError(null);
 
     try {
+      // T027: Uses new endpoint with topologyId
       await topologyApi.removeMembers({
-        resourceId: subgraphId,  // API uses resourceId parameter
-        memberIds,
+        topologyId,  // NEW: Uses topologyId parameter
+        nodeIds: memberIds,  // Backend expects nodeIds field
       });
 
       return true;

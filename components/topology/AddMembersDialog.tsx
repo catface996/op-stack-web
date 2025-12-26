@@ -51,13 +51,16 @@ export const AddMembersDialog: React.FC<AddMembersDialogProps> = ({
   // Debounce search
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { resources, loading: loadingResources, pagination, setPage } = useResources({ keyword: searchKeyword });
+  const { resources, loading: loadingResources, pagination, setPage, refresh: refreshResources } = useResources({ keyword: searchKeyword });
 
-  // Filter out existing members and the subgraph itself from current page
+  // Track successfully added member IDs (to filter from list without closing dialog)
+  const [addedMemberIds, setAddedMemberIds] = useState<Set<number>>(new Set());
+
+  // Filter out existing members, newly added members, and the subgraph itself from current page
   const availableResources = useMemo(() => {
-    const existingSet = new Set([...existingMemberIds, subgraphId]);
+    const existingSet = new Set([...existingMemberIds, ...addedMemberIds, subgraphId]);
     return resources.filter(r => !existingSet.has(r.id));
-  }, [resources, existingMemberIds, subgraphId]);
+  }, [resources, existingMemberIds, addedMemberIds, subgraphId]);
 
   // Debounced search handler
   const handleSearchInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,7 +120,12 @@ export const AddMembersDialog: React.FC<AddMembersDialogProps> = ({
 
     const success = await onAdd(memberIds);
     if (success) {
-      onClose();
+      // Add successfully added IDs to the filter set (removes them from list)
+      setAddedMemberIds(prev => new Set([...prev, ...memberIds]));
+      // Clear selection
+      setSelectedIds(new Set());
+      // Refresh the resource list
+      refreshResources();
     }
   };
 

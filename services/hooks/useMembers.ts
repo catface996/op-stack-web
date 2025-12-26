@@ -1,13 +1,31 @@
 /**
  * useMembers Hook
  *
- * Fetch paginated member list for a topology (subgraph)
+ * Fetch paginated member list for a topology
  * Feature: 003-topologies-management
+ * Updated: 005-api-reintegration - Uses topologyId instead of resourceId
+ * Updated: Backend now returns NodeDTO instead of TopologyMember
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { topologyApi } from '../api/topology';
-import type { TopologyMember } from '../api/types';
+import type { TopologyMember, NodeDTO } from '../api/types';
+
+/**
+ * Transform NodeDTO to TopologyMember format for backward compatibility
+ */
+function nodeToMember(node: NodeDTO, topologyId: number): TopologyMember {
+  return {
+    id: node.id,  // Use node.id as the membership record id
+    subgraphId: topologyId,
+    memberId: node.id,
+    memberName: node.name,
+    memberTypeCode: node.nodeTypeCode,
+    memberStatus: node.status,
+    addedAt: node.createdAt,
+    addedBy: node.createdBy,
+  };
+}
 
 export interface MembersPagination {
   page: number;
@@ -30,8 +48,9 @@ const DEFAULT_PAGE_SIZE = 10;
 
 /**
  * Hook for fetching topology member list
+ * @param topologyId - The topology ID to fetch members for (renamed from subgraphId)
  */
-export function useMembers(subgraphId: number | null): UseMembersResult {
+export function useMembers(topologyId: number | null): UseMembersResult {
   const [members, setMembers] = useState<TopologyMember[]>([]);
   const [pagination, setPagination] = useState<MembersPagination>({
     page: 1,
@@ -46,7 +65,7 @@ export function useMembers(subgraphId: number | null): UseMembersResult {
   const requestIdRef = useRef(0);
 
   const fetchMembers = useCallback(async (page: number, size: number) => {
-    if (subgraphId === null) {
+    if (topologyId === null) {
       setMembers([]);
       setPagination({ page: 1, size, totalElements: 0, totalPages: 0 });
       return;
@@ -57,8 +76,9 @@ export function useMembers(subgraphId: number | null): UseMembersResult {
     setError(null);
 
     try {
+      // T025: Updated to use topologyId instead of resourceId
       const result = await topologyApi.queryMembers({
-        resourceId: subgraphId,  // API uses resourceId parameter
+        topologyId,  // NEW: Uses topologyId parameter
         page,
         size,
       });
@@ -68,7 +88,13 @@ export function useMembers(subgraphId: number | null): UseMembersResult {
         return;
       }
 
-      setMembers(result.content);
+      // Transform NodeDTO to TopologyMember format
+      // Backend now returns PageResult<NodeDTO> instead of PageResult<TopologyMember>
+      const transformedMembers = (result.content as unknown as NodeDTO[]).map(
+        node => nodeToMember(node, topologyId)
+      );
+
+      setMembers(transformedMembers);
       setPagination({
         page: result.page,
         size: result.size,
@@ -90,12 +116,12 @@ export function useMembers(subgraphId: number | null): UseMembersResult {
         setLoading(false);
       }
     }
-  }, [subgraphId]);
+  }, [topologyId]);
 
-  // Fetch on mount and when subgraphId changes
+  // Fetch on mount and when topologyId changes
   useEffect(() => {
     fetchMembers(1, pagination.size);
-  }, [subgraphId, fetchMembers]);
+  }, [topologyId, fetchMembers]);
 
   const setPage = useCallback((page: number) => {
     setPagination(prev => ({ ...prev, page }));
