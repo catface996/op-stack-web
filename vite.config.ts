@@ -9,6 +9,13 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
         proxy: {
+          // Model API - port 7070
+          '/api/v1/models': {
+            target: 'http://localhost:7070',
+            changeOrigin: true,
+            secure: false,
+          },
+          // Default API (Resource, Topology, Prompt) - port 8080
           '/api': {
             target: 'http://localhost:8080',
             changeOrigin: true,

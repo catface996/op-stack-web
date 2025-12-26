@@ -44,3 +44,7 @@ export {
 export { usePromptTemplateMutations, type UsePromptTemplateMutationsResult } from './usePromptTemplateMutations';
 export { useTemplateUsages, type UseTemplateUsagesResult } from './useTemplateUsages';
 export { usePromptTemplate, type UsePromptTemplateResult } from './usePromptTemplate';
+
+// Model Management (Feature: 008-model-api-integration)
+export { useModels } from './useModels';
+export { useModelMutations } from './useModelMutations';

@@ -1007,3 +1007,142 @@ export type CreateTemplateUsageResponse = TemplateUsageDTO;
 
 /** Delete usage response */
 export type DeleteUsageResponse = ApiResponse<void>;
+
+// ============================================================================
+// Model Types (Feature: 008-model-api-integration)
+// ============================================================================
+
+/**
+ * Model entity from /api/v1/models/* endpoints
+ * AI model configuration for the platform
+ */
+export interface ModelDTO {
+  /** Model ID (auto-generated) */
+  id: number;
+  /** Display name */
+  name: string;
+  /** Technical model identifier (e.g., "gpt-4", "claude-3") */
+  model_id: string;
+  /** Optional description */
+  description?: string;
+  /** Whether model is currently enabled */
+  is_active: boolean;
+  /** Maximum token limit for responses */
+  max_tokens?: number;
+  /** Sampling temperature (0.0-2.0) */
+  temperature?: number;
+  /** Nucleus sampling parameter (0.0-1.0) */
+  top_p?: number;
+  /** Deployment region */
+  region?: string;
+  /** Creation timestamp */
+  created_at?: string;
+  /** Last update timestamp */
+  updated_at?: string;
+}
+
+/**
+ * Request for listing models
+ * POST /api/v1/models/list
+ */
+export interface ModelListRequest {
+  /** Page number (1-based) */
+  page: number;
+  /** Items per page */
+  size: number;
+  /** Optional filter by active status */
+  is_active?: boolean;
+}
+
+/**
+ * Paginated list response for models
+ */
+export interface ModelListResponse {
+  items: ModelDTO[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+/**
+ * Request for creating a model
+ * POST /api/v1/models/create
+ */
+export interface ModelCreateRequest {
+  /** Display name (required) */
+  name: string;
+  /** Technical model identifier (required) */
+  model_id: string;
+  /** Optional description */
+  description?: string;
+  /** Active status (default: true) */
+  is_active?: boolean;
+  /** Maximum tokens */
+  max_tokens?: number;
+  /** Temperature (0.0-2.0) */
+  temperature?: number;
+  /** Top P (0.0-1.0) */
+  top_p?: number;
+  /** Region */
+  region?: string;
+}
+
+/**
+ * Request for getting a single model
+ * POST /api/v1/models/get
+ */
+export interface ModelGetRequest {
+  id: number;
+}
+
+/**
+ * Request for updating a model
+ * POST /api/v1/models/update
+ */
+export interface ModelUpdateRequest {
+  /** Model ID (required) */
+  id: number;
+  /** Display name */
+  name?: string;
+  /** Technical model identifier */
+  model_id?: string;
+  /** Description */
+  description?: string;
+  /** Active status */
+  is_active?: boolean;
+  /** Maximum tokens */
+  max_tokens?: number;
+  /** Temperature (0.0-2.0) */
+  temperature?: number;
+  /** Top P (0.0-1.0) */
+  top_p?: number;
+  /** Region */
+  region?: string;
+}
+
+/**
+ * Request for deleting a model
+ * POST /api/v1/models/delete
+ */
+export interface ModelDeleteRequest {
+  id: number;
+}
+
+// ============================================================================
+// Model Response Types (Feature: 008-model-api-integration)
+// ============================================================================
+
+/** List models response */
+export type ListModelsResponse = ApiResponse<ModelListResponse>;
+
+/** Create model response (returns ModelDTO directly or wrapped) */
+export type CreateModelResponse = ModelDTO;
+
+/** Get model response */
+export type GetModelResponse = ApiResponse<ModelDTO>;
+
+/** Update model response */
+export type UpdateModelResponse = ApiResponse<ModelDTO>;
+
+/** Delete model response */
+export type DeleteModelResponse = ApiResponse<void>;

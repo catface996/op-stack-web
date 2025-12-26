@@ -963,7 +963,7 @@ const App: React.FC = () => {
           <Route path="agents/prompts" element={<PromptManagement onBack={() => navigate(-1)} />} />
           <Route path="prompts/:id" element={<PromptDetailWrapper />} />
           <Route path="prompts/usages" element={<UsageManagement onBack={() => navigate(-1)} />} />
-          <Route path="agents/models" element={<ModelManagement models={INITIAL_MODELS} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => navigate(-1)} />} />
+          <Route path="agents/models" element={<ModelManagement onBack={() => navigate(-1)} />} />
           <Route path="agents/tools" element={<ToolManagement tools={INITIAL_TOOLS} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => navigate(-1)} />} />
 
           {/* Reports */}
