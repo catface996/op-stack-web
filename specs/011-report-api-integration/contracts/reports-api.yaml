@@ -1,0 +1,236 @@
+# Report Management API Contract
+# Extracted from backend OpenAPI: http://localhost:8080/docs/service/v3/api-docs
+# Feature: 011-report-api-integration
+
+openapi: 3.0.1
+info:
+  title: Report Management API
+  version: 1.0.0
+
+paths:
+  /api/service/v1/reports/list:
+    post:
+      summary: List reports with pagination
+      operationId: listReports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListReportsRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportListResponse'
+
+  /api/service/v1/reports/get:
+    post:
+      summary: Get report detail
+      operationId: getReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetReportRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDetailResponse'
+        '404':
+          description: Report not found
+
+  /api/service/v1/reports/create:
+    post:
+      summary: Create new report
+      operationId: createReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDTO'
+        '400':
+          description: Invalid parameters
+        '404':
+          description: Referenced topology not found
+
+  /api/service/v1/reports/delete:
+    post:
+      summary: Delete report (soft delete)
+      operationId: deleteReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteReportRequest'
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Report not found
+
+components:
+  schemas:
+    ListReportsRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        type:
+          type: string
+          enum: [Diagnosis, Audit, Performance, Security]
+        status:
+          type: string
+          enum: [Draft, Final, Archived]
+        keyword:
+          type: string
+          description: Search in title, summary, tags
+        sortBy:
+          type: string
+          enum: [title, type, status, created_at]
+        sortOrder:
+          type: string
+          enum: [asc, desc]
+          default: desc
+
+    GetReportRequest:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+
+    CreateReportRequest:
+      type: object
+      required: [title, type, author]
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        type:
+          type: string
+          enum: [Diagnosis, Audit, Performance, Security]
+        status:
+          type: string
+          enum: [Draft, Final, Archived]
+          default: Final
+        author:
+          type: string
+          maxLength: 100
+        summary:
+          type: string
+          maxLength: 500
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        topologyId:
+          type: integer
+          format: int64
+
+    DeleteReportRequest:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+
+    ReportDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        author:
+          type: string
+        summary:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        topologyId:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+
+    PageResultReportDTO:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportDTO'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        first:
+          type: boolean
+        last:
+          type: boolean
+
+    ReportListResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/PageResultReportDTO'
+
+    ReportDetailResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ReportDTO'

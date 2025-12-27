@@ -159,13 +159,15 @@ export interface PromptTemplate {
 }
 
 export interface ReportTemplate {
-  id: string;
+  id: number;
   name: string;
   description: string;
   category: 'Incident' | 'Performance' | 'Security' | 'Audit';
-  content: string; 
+  content: string;
   tags: string[];
-  updatedAt: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AIModel {
@@ -391,16 +393,16 @@ export interface ToolUsageInfo {
 }
 
 export interface Report {
-  id: string;
+  id: number;
   title: string;
   type: 'Diagnosis' | 'Audit' | 'Performance' | 'Security';
   status: 'Draft' | 'Final' | 'Archived';
-  createdAt: number;
+  createdAt: string;
   author: string;
   summary: string;
   content: string;
   tags: string[];
-  topologyId?: string; // 可选：关联的拓扑
+  topologyId?: number;
 }
 
 export interface TraceStep {

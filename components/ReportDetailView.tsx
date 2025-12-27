@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Report } from '../types';
+import { useReport } from '../services/hooks/useReport';
+import type { ReportDTO } from '../services/api/types';
 import {
   ArrowLeft,
   Printer,
@@ -17,7 +18,9 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Loader2
+  Loader2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -42,7 +45,7 @@ import {
 } from 'recharts';
 
 interface ReportDetailViewProps {
-  report: Report;
+  reportId: number;
   onBack: () => void;
 }
 
@@ -179,7 +182,8 @@ const DataChart: React.FC<{ configString: string }> = ({ configString }) => {
 const ZOOM_LEVELS = [50, 75, 100, 125, 150, 175, 200];
 const DEFAULT_ZOOM = 100;
 
-const ReportDetailView: React.FC<ReportDetailViewProps> = ({ report, onBack }) => {
+const ReportDetailView: React.FC<ReportDetailViewProps> = ({ reportId, onBack }) => {
+  const { report, loading, error, notFound, refresh } = useReport({ id: reportId });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(DEFAULT_ZOOM);
   const [isExporting, setIsExporting] = useState(false);
@@ -223,7 +227,7 @@ const ReportDetailView: React.FC<ReportDetailViewProps> = ({ report, onBack }) =
   }, []);
 
   const exportPDF = useCallback(async () => {
-    if (!contentRef.current || isExporting) return;
+    if (!contentRef.current || isExporting || !report) return;
 
     setIsExporting(true);
 
@@ -255,14 +259,14 @@ const ReportDetailView: React.FC<ReportDetailViewProps> = ({ report, onBack }) =
       };
 
       await html2pdf().set(opt).from(element).save();
-    } catch (error) {
-      console.error('PDF export error:', error);
+    } catch (pdfError) {
+      console.error('PDF export error:', pdfError);
     } finally {
       // Restore previous zoom level
       setZoomLevel(previousZoom);
       setIsExporting(false);
     }
-  }, [report.title, isExporting, zoomLevel]);
+  }, [report, isExporting, zoomLevel]);
 
   const toggleFullscreen = useCallback(async () => {
     if (!containerRef.current) return;
@@ -295,6 +299,60 @@ const ReportDetailView: React.FC<ReportDetailViewProps> = ({ report, onBack }) =
       default: return 'bg-slate-800 text-slate-400';
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-slate-950 text-slate-200 p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={onBack}
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <span className="text-slate-500">Loading report...</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 size={48} className="animate-spin text-cyan-400" />
+        </div>
+      </div>
+    );
+  }
+
+  // Error state (including not found)
+  if (error || notFound) {
+    return (
+      <div className="flex flex-col h-full bg-slate-950 text-slate-200 p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={onBack}
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <span className="text-slate-500">{notFound ? 'Report not found' : 'Error loading report'}</span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <AlertCircle size={48} className="text-red-400 mb-4" />
+          <p className="text-red-400 font-bold mb-4">{error}</p>
+          {!notFound && (
+            <button
+              onClick={refresh}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-all"
+            >
+              <RefreshCw size={16} /> Retry
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // No report data
+  if (!report) {
+    return null;
+  }
 
   return (
     <div ref={containerRef} className="flex flex-col h-full bg-slate-950 text-slate-200 p-6 overflow-hidden">
@@ -442,7 +500,7 @@ const ReportDetailView: React.FC<ReportDetailViewProps> = ({ report, onBack }) =
                     <div>
                         <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tags</div>
                         <div className="flex flex-wrap gap-1">
-                           {report.tags.map(tag => (
+                           {(report.tags || []).map(tag => (
                                <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 text-slate-400">
                                    {tag}
                                </span>

@@ -175,16 +175,14 @@ const ApiResourceDetailWrapper: React.FC = () => {
   );
 };
 
-const ReportDetailWrapper: React.FC<{ reports: Report[] }> = ({ reports }) => {
+const ReportDetailWrapper: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   if (!id) return <NotFound />;
 
-  const report = reports.find(r => r.id === id);
-  if (!report) return <NotFound />;
-
-  return <ReportDetailView report={report} onBack={() => navigate(-1)} />;
+  // ReportDetailView now handles fetching via useReport hook internally
+  return <ReportDetailView reportId={Number(id)} onBack={() => navigate(-1)} />;
 };
 
 const PromptDetailWrapper: React.FC = () => {
@@ -967,9 +965,9 @@ const App: React.FC = () => {
           <Route path="agents/tools" element={<ToolManagement onBack={() => navigate(-1)} />} />
 
           {/* Reports */}
-          <Route path="reports" element={<ReportManagement reports={reports} onViewReport={(r) => navigate(`/reports/${r.id}`)} onManageTemplates={() => navigate('/reports/templates')} />} />
-          <Route path="reports/templates" element={<ReportTemplateManagement templates={INITIAL_REPORT_TEMPLATES} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} onBack={() => navigate(-1)} />} />
-          <Route path="reports/:id" element={<ReportDetailWrapper reports={reports} />} />
+          <Route path="reports" element={<ReportManagement onViewReport={(r) => navigate(`/reports/${r.id}`)} onManageTemplates={() => navigate('/reports/templates')} />} />
+          <Route path="reports/templates" element={<ReportTemplateManagement onBack={() => navigate(-1)} />} />
+          <Route path="reports/:id" element={<ReportDetailWrapper />} />
 
           {/* Discovery */}
           <Route path="discovery" element={<DiscoveryView />} />

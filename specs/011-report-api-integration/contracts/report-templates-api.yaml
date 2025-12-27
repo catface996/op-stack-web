@@ -1,0 +1,266 @@
+# Report Template Management API Contract
+# Extracted from backend OpenAPI: http://localhost:8080/docs/service/v3/api-docs
+# Feature: 011-report-api-integration
+
+openapi: 3.0.1
+info:
+  title: Report Template Management API
+  version: 1.0.0
+
+paths:
+  /api/service/v1/report-templates/list:
+    post:
+      summary: List templates with pagination
+      operationId: listTemplates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListReportTemplatesRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportTemplateListResponse'
+
+  /api/service/v1/report-templates/get:
+    post:
+      summary: Get template detail
+      operationId: getTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetReportTemplateRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportTemplateDetailResponse'
+        '404':
+          description: Template not found
+
+  /api/service/v1/report-templates/create:
+    post:
+      summary: Create new template
+      operationId: createTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportTemplateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportTemplateDTO'
+        '400':
+          description: Invalid parameters
+        '409':
+          description: Template name already exists
+
+  /api/service/v1/report-templates/update:
+    post:
+      summary: Update template (optimistic locking)
+      operationId: updateTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateReportTemplateRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportTemplateDTO'
+        '400':
+          description: Invalid parameters
+        '404':
+          description: Template not found
+        '409':
+          description: Version conflict or name already exists
+
+  /api/service/v1/report-templates/delete:
+    post:
+      summary: Delete template (soft delete)
+      operationId: deleteTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteReportTemplateRequest'
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Template not found
+
+components:
+  schemas:
+    ListReportTemplatesRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        category:
+          type: string
+          enum: [Incident, Performance, Security, Audit]
+        keyword:
+          type: string
+          description: Search in name, description, tags
+
+    GetReportTemplateRequest:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+
+    CreateReportTemplateRequest:
+      type: object
+      required: [name, category, content]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        category:
+          type: string
+          enum: [Incident, Performance, Security, Audit]
+        content:
+          type: string
+          description: Markdown template with placeholders
+        tags:
+          type: array
+          items:
+            type: string
+
+    UpdateReportTemplateRequest:
+      type: object
+      required: [id, expectedVersion]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        category:
+          type: string
+          enum: [Incident, Performance, Security, Audit]
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        expectedVersion:
+          type: integer
+          description: Required for optimistic locking
+
+    DeleteReportTemplateRequest:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+
+    ReportTemplateDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        version:
+          type: integer
+          description: Optimistic lock version
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PageResultReportTemplateDTO:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportTemplateDTO'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        first:
+          type: boolean
+        last:
+          type: boolean
+
+    ReportTemplateListResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/PageResultReportTemplateDTO'
+
+    ReportTemplateDetailResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ReportTemplateDTO'
