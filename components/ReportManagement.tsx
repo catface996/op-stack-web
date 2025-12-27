@@ -1,12 +1,13 @@
 
-import React, { useState, useMemo } from 'react';
-import { Report } from '../types';
-import { 
-  FileText, 
-  Search, 
-  LayoutList, 
-  LayoutGrid, 
-  ChevronLeft, 
+import React, { useState, useEffect } from 'react';
+import { useReports } from '../services/hooks/useReports';
+import type { ReportDTO, ReportType } from '../services/api/types';
+import {
+  FileText,
+  Search,
+  LayoutList,
+  LayoutGrid,
+  ChevronLeft,
   ChevronRight,
   Eye,
   Calendar,
@@ -23,35 +24,61 @@ import {
   Activity,
   Layers,
   ArrowRight,
-  BookOpen
+  BookOpen,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Trash2,
+  X
 } from 'lucide-react';
 
 interface ReportManagementProps {
-  reports: Report[];
-  onViewReport: (report: Report) => void;
+  onViewReport: (report: ReportDTO) => void;
   onManageTemplates: () => void;
 }
 
 const ITEMS_PER_PAGE = 8;
 
-const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewReport, onManageTemplates }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+const ReportManagement: React.FC<ReportManagementProps> = ({ onViewReport, onManageTemplates }) => {
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
-  const [typeFilter, setTypeFilter] = useState<string>('All');
+  const [localSearch, setLocalSearch] = useState('');
+  const [localTypeFilter, setLocalTypeFilter] = useState<string>('All');
+  const [deleteConfirm, setDeleteConfirm] = useState<ReportDTO | null>(null);
 
-  const filteredReports = useMemo(() => {
-    return reports.filter(r => {
-      const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          r.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          r.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesType = typeFilter === 'All' || r.type === typeFilter;
-      return matchesSearch && matchesType;
-    }).slice().reverse(); // 最新的报告排在前面
-  }, [reports, searchTerm, typeFilter]);
+  const {
+    reports,
+    loading,
+    error,
+    page,
+    totalPages,
+    total,
+    typeFilter,
+    keyword,
+    setPage,
+    setTypeFilter,
+    setKeyword,
+    refresh,
+    handleDelete,
+    deleting,
+  } = useReports({ size: ITEMS_PER_PAGE });
 
-  const totalPages = Math.ceil(filteredReports.length / ITEMS_PER_PAGE);
-  const paginatedReports = filteredReports.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  // Debounced search - update keyword after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setKeyword(localSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localSearch, setKeyword]);
+
+  // Convert local type filter to API type filter
+  const handleTypeFilterChange = (type: string) => {
+    setLocalTypeFilter(type);
+    if (type === 'All') {
+      setTypeFilter(undefined);
+    } else {
+      setTypeFilter(type as ReportType);
+    }
+  };
 
   const getTypeStyle = (type: string) => {
     switch (type) {
@@ -99,20 +126,20 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewRepo
          <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-center">
             <div className="relative w-full sm:w-72">
                <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
-               <input 
-                  type="text" 
-                  placeholder="Filter by title, tag, or metadata..." 
-                  value={searchTerm} 
-                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
-                  className="w-full bg-slate-950 border border-slate-700/60 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 text-slate-200 transition-all" 
+               <input
+                  type="text"
+                  placeholder="Filter by title, tag, or metadata..."
+                  value={localSearch}
+                  onChange={(e) => setLocalSearch(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700/60 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 text-slate-200 transition-all"
                />
             </div>
             <div className="flex bg-slate-950/80 rounded-lg p-1 border border-slate-800 overflow-x-auto no-scrollbar">
                 {['All', 'Diagnosis', 'Security', 'Performance', 'Audit'].map(type => (
                    <button
                       key={type}
-                      onClick={() => { setTypeFilter(type); setCurrentPage(1); }}
-                      className={`px-3 py-1.5 text-[10px] font-bold rounded transition-all whitespace-nowrap ${typeFilter === type ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                      onClick={() => handleTypeFilterChange(type)}
+                      className={`px-3 py-1.5 text-[10px] font-bold rounded transition-all whitespace-nowrap ${localTypeFilter === type ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                    >
                      {type}
                    </button>
@@ -129,17 +156,40 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewRepo
                 </button>
             </div>
             <div className="hidden sm:block text-[10px] font-black text-slate-500 tracking-widest">
-                Cache: <span className="text-white">{filteredReports.length}</span> objects
+                Total: <span className="text-white">{total}</span> reports
             </div>
          </div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-auto custom-scrollbar">
-          {paginatedReports.length > 0 ? (
+          {/* Loading State */}
+          {loading && (
+             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                 <Loader2 size={48} className="animate-spin text-cyan-400 mb-4" />
+                 <p className="text-sm font-medium">Loading reports...</p>
+             </div>
+          )}
+
+          {/* Error State */}
+          {!loading && error && (
+             <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-red-950/10 border border-dashed border-red-900/40 rounded-2xl">
+                 <AlertCircle size={48} className="text-red-400 mb-4" />
+                 <p className="text-sm font-bold text-red-400 mb-4">{error}</p>
+                 <button
+                    onClick={refresh}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-all text-sm font-medium"
+                 >
+                    <RefreshCw size={16} /> Retry
+                 </button>
+             </div>
+          )}
+
+          {/* Content */}
+          {!loading && !error && reports.length > 0 ? (
              viewMode === 'card' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
-                    {paginatedReports.map(report => {
+                    {reports.map(report => {
                         const style = getTypeStyle(report.type);
                         return (
                             <div 
@@ -171,7 +221,7 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewRepo
                                    </p>
 
                                    <div className="flex flex-wrap gap-1.5 mb-5">
-                                       {report.tags.map(tag => (
+                                       {(report.tags || []).map(tag => (
                                            <span key={tag} className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-[9px] font-bold text-slate-500 uppercase tracking-tighter hover:text-cyan-400 transition-colors">
                                                #{tag}
                                            </span>
@@ -189,7 +239,7 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewRepo
                                             </div>
                                        </div>
                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                           <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-cyan-400"><Settings size={14}/></button>
+                                           <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(report); }} className="p-1.5 hover:bg-red-950/50 rounded-lg text-slate-500 hover:text-red-400"><Trash2 size={14}/></button>
                                            <button onClick={(e) => { e.stopPropagation(); onViewReport(report); }} className="p-1.5 bg-cyan-600/10 text-cyan-400 rounded-lg"><ArrowRight size={14}/></button>
                                        </div>
                                    </div>
@@ -210,7 +260,7 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewRepo
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800 bg-slate-900/40">
-                            {paginatedReports.map(report => {
+                            {reports.map(report => {
                                 const style = getTypeStyle(report.type);
                                 return (
                                 <tr key={report.id} className="hover:bg-slate-800/40 transition-colors group cursor-pointer" onClick={() => onViewReport(report)}>
@@ -236,19 +286,19 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewRepo
                                     </td>
                                     <td className="p-4 text-center">
                                         <div className="flex items-center justify-center gap-1.5">
-                                            {report.tags.slice(0, 2).map(tag => (
+                                            {(report.tags || []).slice(0, 2).map(tag => (
                                                 <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
                                                     {tag}
                                                 </span>
                                             ))}
-                                            {report.tags.length > 2 && <span className="text-[8px] text-slate-600 font-bold">+{report.tags.length - 2}</span>}
+                                            {(report.tags || []).length > 2 && <span className="text-[8px] text-slate-600 font-bold">+{(report.tags || []).length - 2}</span>}
                                         </div>
                                     </td>
                                     <td className="p-4 text-right">
                                         <div className="flex items-center justify-end gap-2">
                                             <span className="text-[10px] text-slate-600 font-mono hidden md:inline">{new Date(report.createdAt).toLocaleDateString()}</span>
                                             <button onClick={(e) => { e.stopPropagation(); onViewReport(report); }} className="p-2 hover:bg-slate-700 rounded-lg text-slate-500 hover:text-cyan-400"><Eye size={16} /></button>
-                                            <button onClick={(e) => { e.stopPropagation(); }} className="p-2 hover:bg-slate-700 rounded-lg text-slate-500 hover:text-cyan-400"><Settings size={16} /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(report); }} className="p-2 hover:bg-red-950/50 rounded-lg text-slate-500 hover:text-red-400"><Trash2 size={16} /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -258,7 +308,10 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewRepo
                     </table>
                 </div>
              )
-          ) : (
+          ) : null}
+
+          {/* Empty State */}
+          {!loading && !error && reports.length === 0 && (
              <div className="flex flex-col items-center justify-center h-64 text-slate-500 bg-slate-900/20 border border-dashed border-slate-800 rounded-2xl">
                  <FileText size={48} className="opacity-10 mb-4" />
                  <p className="text-sm font-bold tracking-wide">No specialized intelligence reports found in archive.</p>
@@ -267,28 +320,80 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ reports, onViewRepo
       </div>
 
       {/* Pagination */}
+      {!loading && !error && reports.length > 0 && (
       <div className="flex justify-center items-center gap-6 pt-4 border-t border-slate-900/50 shrink-0">
-          <button 
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} 
-              disabled={currentPage === 1} 
+          <button
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
           >
               <ChevronLeft size={14} /> Prev
           </button>
           <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-slate-500 tracking-widest">Library segment</span>
-              <span className="text-xs text-white bg-slate-800 px-2 py-0.5 rounded font-mono font-bold">{currentPage}</span>
+              <span className="text-xs text-white bg-slate-800 px-2 py-0.5 rounded font-mono font-bold">{page}</span>
               <span className="text-[10px] text-slate-500 font-bold">/</span>
               <span className="text-xs text-slate-400 font-mono font-bold">{Math.max(1, totalPages)}</span>
           </div>
-          <button 
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} 
-              disabled={currentPage === totalPages || totalPages === 0} 
+          <button
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages || totalPages === 0}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
           >
               Next <ChevronRight size={14} />
           </button>
       </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="p-5 bg-slate-950/60 border-b border-slate-800 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Trash2 size={20} className="text-red-400" />
+                Delete Report
+              </h3>
+              <button onClick={() => setDeleteConfirm(null)} className="text-slate-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-slate-300 text-sm mb-2">
+                Are you sure you want to delete this report?
+              </p>
+              <p className="text-slate-400 text-xs bg-slate-950 px-3 py-2 rounded border border-slate-800 font-medium">
+                "{deleteConfirm.title}"
+              </p>
+              <p className="text-red-400/80 text-xs mt-3">
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="p-4 bg-slate-950/40 border-t border-slate-800 flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const success = await handleDelete(deleteConfirm.id);
+                  if (success) {
+                    setDeleteConfirm(null);
+                  }
+                }}
+                disabled={deleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg transition-all text-sm font-bold flex items-center gap-2"
+              >
+                {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

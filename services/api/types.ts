@@ -1143,3 +1143,252 @@ export type UpdateModelResponse = ApiResponse<ModelDTO>;
 
 /** Delete model response */
 export type DeleteModelResponse = ApiResponse<void>;
+
+// ============================================================================
+// Report Types (Feature: 011-report-api-integration)
+// ============================================================================
+
+/**
+ * Report type enumeration
+ */
+export type ReportType = 'Diagnosis' | 'Audit' | 'Performance' | 'Security';
+
+/**
+ * Report status enumeration
+ */
+export type ReportStatus = 'Draft' | 'Final' | 'Archived';
+
+/**
+ * Report DTO from API
+ */
+export interface ReportDTO {
+  /** Report ID (int64) */
+  id: number;
+  /** Report title (max 200 chars) */
+  title: string;
+  /** Report type */
+  type: ReportType;
+  /** Report status */
+  status: ReportStatus;
+  /** Author name (max 100 chars) */
+  author: string;
+  /** Brief summary (max 500 chars) */
+  summary?: string;
+  /** Full content (Markdown format) */
+  content?: string;
+  /** Array of tags */
+  tags?: string[];
+  /** Associated topology ID (optional) */
+  topologyId?: number;
+  /** Creation timestamp (ISO 8601) */
+  createdAt: string;
+}
+
+// ============================================================================
+// Report Template Types (Feature: 011-report-api-integration)
+// ============================================================================
+
+/**
+ * Report template category enumeration
+ */
+export type ReportTemplateCategory = 'Incident' | 'Performance' | 'Security' | 'Audit';
+
+/**
+ * Report template DTO from API
+ */
+export interface ReportTemplateDTO {
+  /** Template ID (int64) */
+  id: number;
+  /** Template name (max 100 chars) */
+  name: string;
+  /** Template description (max 500 chars) */
+  description?: string;
+  /** Template category */
+  category: ReportTemplateCategory;
+  /** Template content with placeholders */
+  content: string;
+  /** Array of tags */
+  tags?: string[];
+  /** Optimistic lock version */
+  version: number;
+  /** Creation timestamp (ISO 8601) */
+  createdAt: string;
+  /** Last update timestamp (ISO 8601) */
+  updatedAt: string;
+}
+
+// ============================================================================
+// Report Request Types (Feature: 011-report-api-integration)
+// ============================================================================
+
+/**
+ * List reports request
+ * POST /api/service/v1/reports/list
+ */
+export interface ListReportsRequest {
+  /** Page number (1-based, default 1) */
+  page?: number;
+  /** Page size (default 10, max 100) */
+  size?: number;
+  /** Filter by type */
+  type?: ReportType;
+  /** Filter by status */
+  status?: ReportStatus;
+  /** Search keyword (matches title, summary, tags) */
+  keyword?: string;
+  /** Sort field */
+  sortBy?: 'title' | 'type' | 'status' | 'created_at';
+  /** Sort order (default desc) */
+  sortOrder?: 'asc' | 'desc';
+}
+
+/**
+ * Get report request
+ * POST /api/service/v1/reports/get
+ */
+export interface GetReportRequest {
+  /** Report ID (required) */
+  id: number;
+}
+
+/**
+ * Create report request
+ * POST /api/service/v1/reports/create
+ */
+export interface CreateReportRequest {
+  /** Report title (required, max 200 chars) */
+  title: string;
+  /** Report type (required) */
+  type: ReportType;
+  /** Report status (default: Final) */
+  status?: ReportStatus;
+  /** Author name (required, max 100 chars) */
+  author: string;
+  /** Brief summary (max 500 chars) */
+  summary?: string;
+  /** Full content (Markdown) */
+  content?: string;
+  /** Array of tags */
+  tags?: string[];
+  /** Associated topology ID */
+  topologyId?: number;
+}
+
+/**
+ * Delete report request
+ * POST /api/service/v1/reports/delete
+ */
+export interface DeleteReportRequest {
+  /** Report ID (required) */
+  id: number;
+}
+
+// ============================================================================
+// Report Response Types (Feature: 011-report-api-integration)
+// ============================================================================
+
+/** List reports response */
+export type ReportListResponse = ApiResponse<PageResult<ReportDTO>>;
+
+/** Get report detail response */
+export type ReportDetailResponse = ApiResponse<ReportDTO>;
+
+/** Create report response */
+export type CreateReportResponse = ApiResponse<ReportDTO>;
+
+/** Delete report response */
+export type DeleteReportResponse = ApiResponse<void>;
+
+// ============================================================================
+// Report Template Request Types (Feature: 011-report-api-integration)
+// ============================================================================
+
+/**
+ * List report templates request
+ * POST /api/service/v1/report-templates/list
+ */
+export interface ListReportTemplatesRequest {
+  /** Page number (1-based, default 1) */
+  page?: number;
+  /** Page size (default 10, max 100) */
+  size?: number;
+  /** Filter by category */
+  category?: ReportTemplateCategory;
+  /** Search keyword (matches name, description, tags) */
+  keyword?: string;
+}
+
+/**
+ * Get report template request
+ * POST /api/service/v1/report-templates/get
+ */
+export interface GetReportTemplateRequest {
+  /** Template ID (required) */
+  id: number;
+}
+
+/**
+ * Create report template request
+ * POST /api/service/v1/report-templates/create
+ */
+export interface CreateReportTemplateRequest {
+  /** Template name (required, max 100 chars) */
+  name: string;
+  /** Template description (max 500 chars) */
+  description?: string;
+  /** Template category (required) */
+  category: ReportTemplateCategory;
+  /** Template content with placeholders (required) */
+  content: string;
+  /** Array of tags */
+  tags?: string[];
+}
+
+/**
+ * Update report template request
+ * POST /api/service/v1/report-templates/update
+ */
+export interface UpdateReportTemplateRequest {
+  /** Template ID (required) */
+  id: number;
+  /** Template name (max 100 chars) */
+  name?: string;
+  /** Template description (max 500 chars) */
+  description?: string;
+  /** Template category */
+  category?: ReportTemplateCategory;
+  /** Template content */
+  content?: string;
+  /** Array of tags */
+  tags?: string[];
+  /** Expected version for optimistic locking (required) */
+  expectedVersion: number;
+}
+
+/**
+ * Delete report template request
+ * POST /api/service/v1/report-templates/delete
+ */
+export interface DeleteReportTemplateRequest {
+  /** Template ID (required) */
+  id: number;
+}
+
+// ============================================================================
+// Report Template Response Types (Feature: 011-report-api-integration)
+// ============================================================================
+
+/** List report templates response */
+export type ReportTemplateListResponse = ApiResponse<PageResult<ReportTemplateDTO>>;
+
+/** Get report template detail response */
+export type ReportTemplateDetailResponse = ApiResponse<ReportTemplateDTO>;
+
+/** Create report template response */
+export type CreateReportTemplateResponse = ApiResponse<ReportTemplateDTO>;
+
+/** Update report template response */
+export type UpdateReportTemplateResponse = ApiResponse<ReportTemplateDTO>;
+
+/** Delete report template response */
+export type DeleteReportTemplateResponse = ApiResponse<void>;
