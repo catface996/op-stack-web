@@ -27,3 +27,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Utility scripts
+view-topology.mjs
