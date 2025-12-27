@@ -19,8 +19,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   title,
   message,
-  confirmText = '确认',
-  cancelText = '取消',
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
   type = 'danger',
   isLoading = false
 }) => {
@@ -102,7 +102,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  处理中...
+                  Processing...
                 </>
               ) : (
                 <>

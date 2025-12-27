@@ -37,7 +37,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose,
             {/* Language Section */}
             <div>
                 <label className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-                    <Globe size={14} /> Language / 语言
+                    <Globe size={14} /> Language
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                     <button
@@ -64,7 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose,
                             }
                         `}
                     >
-                        <span className="font-bold text-sm">简体中文</span>
+                        <span className="font-bold text-sm">Chinese</span>
                         {formData.language === 'zh' && <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-cyan-400"></div>}
                     </button>
                 </div>

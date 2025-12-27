@@ -15,6 +15,8 @@ Auto-generated from all feature plans. Last updated: 2025-12-25
 - Backend API (proxied to localhost:8080 via Vite dev server) (007-prompt-template-api)
 - TypeScript 5.8.2 + React 18.2.0, Vite 6.2.0, Lucide React 0.303.0 (008-model-api-integration)
 - N/A (backend API at localhost:7070 handles persistence) (008-model-api-integration)
+- TypeScript 5.8.2 + React 18.2.0, Lucide React 0.303.0, Vite 6.2.0 (010-tool-category-management)
+- N/A (Backend API handles persistence via gateway) (010-tool-category-management)
 
 - TypeScript 5.8, React 18.2 + React, Vite 6.2, Lucide-React (icons) (001-resource-api-integration)
 
@@ -34,9 +36,9 @@ npm test && npm run lint
 TypeScript 5.8, React 18.2: Follow standard conventions
 
 ## Recent Changes
+- 010-tool-category-management: Added TypeScript 5.8.2 + React 18.2.0, Lucide React 0.303.0, Vite 6.2.0
 - 009-gateway-api-integration: Added TypeScript 5.8.2 + React 18.2.0, Vite 6.2.0
 - 008-model-api-integration: Added TypeScript 5.8.2 + React 18.2.0, Vite 6.2.0, Lucide React 0.303.0
-- 007-prompt-template-api: Added TypeScript 5.8.2 + React 18.2.0, react-router-dom 7.11.0, Vite 6.2.0, Lucide React (icons)
 
 
 <!-- MANUAL ADDITIONS START -->

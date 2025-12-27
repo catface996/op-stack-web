@@ -193,15 +193,82 @@ export interface AgentTool {
 export type ToolStatus = 'draft' | 'active' | 'deprecated' | 'disabled';
 
 /**
- * Tool category response
+ * Tool category response (flat structure - no nesting)
  */
 export interface ToolCategoryDTO {
   id: string;
   name: string;
   description: string | null;
-  parent_id: string | null;
+  parent_id: string | null; // Legacy field - ignored in flat structure
   created_at: string;
   updated_at: string;
+}
+
+// ============ Tool Category API Types (Feature: 010-tool-category-management) ============
+
+/**
+ * Tool category list request
+ * Constitution: API Pagination Request Format
+ */
+export interface ToolCategoryListRequest {
+  page?: number;
+  size?: number;
+  keyword?: string;  // Search by category name
+}
+
+/**
+ * Paginated response data structure
+ * Constitution: API Pagination Response Format
+ */
+export interface PaginatedData<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+/**
+ * Standard API response wrapper
+ * Constitution: API Pagination Response Format
+ */
+export interface ApiResponseWrapper<T> {
+  code: number;
+  message: string;
+  success: boolean;
+  data: T;
+}
+
+/**
+ * Tool category list response
+ * Constitution: API Pagination Response Format
+ */
+export type ToolCategoryListResponse = ApiResponseWrapper<PaginatedData<ToolCategoryDTO>>;
+
+/**
+ * Tool category create request
+ */
+export interface ToolCategoryCreateRequest {
+  name: string;
+  description?: string;
+}
+
+/**
+ * Tool category update request
+ */
+export interface ToolCategoryUpdateRequest {
+  category_id: string;
+  name?: string;
+  description?: string;
+}
+
+/**
+ * Tool category get/delete request
+ */
+export interface ToolCategoryIdRequest {
+  category_id: string;
 }
 
 /**
@@ -228,10 +295,11 @@ export interface ToolDTO {
 
 /**
  * Tool list request
+ * Constitution: API Pagination Request Format
  */
 export interface ToolListRequest {
   page?: number;
-  page_size?: number;
+  size?: number;
   status?: ToolStatus;
   category_id?: string;
   search?: string;
@@ -239,13 +307,9 @@ export interface ToolListRequest {
 
 /**
  * Tool list response
+ * Constitution: API Pagination Response Format
  */
-export interface ToolListResponse {
-  items: ToolDTO[];
-  total: number;
-  page: number;
-  page_size: number;
-}
+export type ToolListResponse = ApiResponseWrapper<PaginatedData<ToolDTO>>;
 
 /**
  * Tool create request

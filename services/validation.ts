@@ -7,47 +7,47 @@ export class ValidationService {
   static validateToolForm(data: Partial<ToolFormData>): ValidationError[] {
     const errors: ValidationError[] = [];
 
-    // 验证名称
+    // Validate name
     if (!data.name || data.name.trim() === '') {
       errors.push({
         field: 'name',
-        message: '工具名称不能为空',
+        message: 'Tool name is required',
         code: 'required'
       });
     } else if (data.name.length > 100) {
       errors.push({
         field: 'name',
-        message: '工具名称不能超过100个字符',
+        message: 'Tool name cannot exceed 100 characters',
         code: 'maxLength'
       });
     } else if (data.name.length < 1) {
       errors.push({
         field: 'name',
-        message: '工具名称至少需要1个字符',
+        message: 'Tool name must be at least 1 character',
         code: 'minLength'
       });
     }
 
-    // 验证描述
+    // Validate description
     if (data.description && data.description.length > 500) {
       errors.push({
         field: 'description',
-        message: '工具描述不能超过500个字符',
+        message: 'Tool description cannot exceed 500 characters',
         code: 'maxLength'
       });
     }
 
-    // 验证类型
+    // Validate type
     if (!data.type) {
       errors.push({
         field: 'type',
-        message: '请选择工具类型',
+        message: 'Please select a tool type',
         code: 'required'
       });
     } else if (!['Function', 'Integration', 'Retrieval'].includes(data.type)) {
       errors.push({
         field: 'type',
-        message: '无效的工具类型',
+        message: 'Invalid tool type',
         code: 'invalid'
       });
     }
@@ -64,7 +64,7 @@ export class ValidationService {
     if (!name || name.trim() === '') {
       errors.push({
         field: 'name',
-        message: '工具名称不能为空',
+        message: 'Tool name is required',
         code: 'required'
       });
       return errors;
@@ -72,11 +72,11 @@ export class ValidationService {
 
     const trimmedName = name.trim();
 
-    // 长度验证
+    // Length validation
     if (trimmedName.length < 1) {
       errors.push({
         field: 'name',
-        message: '工具名称至少需要1个字符',
+        message: 'Tool name must be at least 1 character',
         code: 'minLength'
       });
     }
@@ -84,17 +84,17 @@ export class ValidationService {
     if (trimmedName.length > 100) {
       errors.push({
         field: 'name',
-        message: '工具名称不能超过100个字符',
+        message: 'Tool name cannot exceed 100 characters',
         code: 'maxLength'
       });
     }
 
-    // 字符验证 - 允许字母、数字、中文、空格、连字符、下划线
+    // Character validation - allow letters, numbers, Chinese, spaces, hyphens, underscores
     const namePattern = /^[\w\s\u4e00-\u9fff-]+$/;
     if (!namePattern.test(trimmedName)) {
       errors.push({
         field: 'name',
-        message: '工具名称只能包含字母、数字、中文、空格、连字符和下划线',
+        message: 'Tool name can only contain letters, numbers, Chinese characters, spaces, hyphens and underscores',
         code: 'invalidFormat'
       });
     }
@@ -111,7 +111,7 @@ export class ValidationService {
     if (description && description.length > 500) {
       errors.push({
         field: 'description',
-        message: '工具描述不能超过500个字符',
+        message: 'Tool description cannot exceed 500 characters',
         code: 'maxLength'
       });
     }
@@ -120,16 +120,16 @@ export class ValidationService {
   }
 
   /**
-   * 获取友好的错误消息
+   * Get friendly error message
    */
   static getErrorMessage(error: ValidationError): string {
     const errorMessages: Record<string, string> = {
-      required: '此字段为必填项',
-      minLength: '输入内容太短',
-      maxLength: '输入内容太长',
-      invalid: '输入内容无效',
-      invalidFormat: '输入格式不正确',
-      unique: '此名称已被使用'
+      required: 'This field is required',
+      minLength: 'Input is too short',
+      maxLength: 'Input is too long',
+      invalid: 'Invalid input',
+      invalidFormat: 'Invalid format',
+      unique: 'This name is already in use'
     };
 
     return errorMessages[error.code] || error.message;

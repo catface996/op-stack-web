@@ -56,9 +56,10 @@ export function useModels(options: UseModelsOptions = {}): UseModelsResult {
 
       const response = await listModels(request);
 
-      setModels(response.items || []);
-      setTotal(response.total || 0);
-      setTotalPages(Math.ceil((response.total || 0) / (options.size ?? DEFAULT_PAGE_SIZE)));
+      // Constitution: API Pagination Response Format - use content/totalElements/totalPages
+      setModels(response.content || []);
+      setTotal(response.totalElements || 0);
+      setTotalPages(response.totalPages || 1);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load models';
       setError(message);

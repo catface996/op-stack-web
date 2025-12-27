@@ -1056,13 +1056,10 @@ export interface ModelListRequest {
 
 /**
  * Paginated list response for models
+ * Constitution: API Pagination Response Format
+ * Note: apiPost extracts result.data, so this is the inner PageResult structure
  */
-export interface ModelListResponse {
-  items: ModelDTO[];
-  total: number;
-  page: number;
-  size: number;
-}
+export type ModelListResponse = PageResult<ModelDTO>;
 
 /**
  * Request for creating a model

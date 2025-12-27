@@ -51,10 +51,10 @@ export function useTools(options: UseToolsOptions = {}): UseToolsResult {
     const pageSize = options.size ?? DEFAULT_PAGE_SIZE;
 
     try {
-      // Always include page and page_size as required by backend API
+      // Constitution: API Pagination Request Format - use "size" not "page_size"
       const request: ToolListRequest = {
         page: page,
-        page_size: pageSize,
+        size: pageSize,
       };
 
       // Only add optional filters if explicitly set
@@ -70,11 +70,21 @@ export function useTools(options: UseToolsOptions = {}): UseToolsResult {
 
       console.log('[useTools] Fetching tools with request:', request);
       const response = await listTools(request);
-      setTools(response.items || []);
-      setTotal(response.total || 0);
-      setTotalPages(Math.ceil((response.total || 0) / pageSize));
+      console.log('[useTools] Response:', response);
+
+      // Constitution: API Pagination Response Format - extract from data.content
+      // Check for success via code === 0 or success === true
+      const isSuccess = response.code === 0 || response.success === true;
+      if (isSuccess && response.data) {
+        setTools(response.data.content || []);
+        setTotal(response.data.totalElements || 0);
+        setTotalPages(response.data.totalPages || 1);
+      } else {
+        setError(response.message || 'Failed to load tool list');
+        setTools([]);
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : '加载工具列表失败';
+      const message = err instanceof Error ? err.message : 'Failed to load tool list';
       setError(message);
       setTools([]);
     } finally {

@@ -1,0 +1,228 @@
+openapi: 3.0.3
+info:
+  title: Tool Categories API
+  description: API endpoints for tool category management (frontend contract)
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Gateway (development)
+
+paths:
+  /api/tools/v1/categories/list:
+    post:
+      summary: List all categories
+      operationId: listCategories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryListRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResponse'
+
+  /api/tools/v1/categories/create:
+    post:
+      summary: Create a new category
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreateRequest'
+      responses:
+        '200':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolCategoryDTO'
+        '400':
+          description: Validation error (e.g., duplicate name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/tools/v1/categories/get:
+    post:
+      summary: Get a category by ID
+      operationId: getCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryIdRequest'
+      responses:
+        '200':
+          description: Category found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolCategoryDTO'
+        '404':
+          description: Category not found
+
+  /api/tools/v1/categories/update:
+    post:
+      summary: Update an existing category
+      operationId: updateCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpdateRequest'
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolCategoryDTO'
+        '400':
+          description: Validation error (e.g., duplicate name)
+        '404':
+          description: Category not found
+
+  /api/tools/v1/categories/delete:
+    post:
+      summary: Delete a category
+      operationId: deleteCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryIdRequest'
+      responses:
+        '200':
+          description: Category deleted
+        '400':
+          description: Cannot delete - category has tools assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Category not found
+
+components:
+  schemas:
+    ToolCategoryDTO:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier
+        name:
+          type: string
+          description: Category name (unique)
+        description:
+          type: string
+          nullable: true
+          description: Category description
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    CategoryListRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          default: 1
+          description: Page number (1-based)
+        page_size:
+          type: integer
+          default: 10
+          description: Items per page
+
+    CategoryListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - page_size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCategoryDTO'
+        total:
+          type: integer
+          description: Total number of categories
+        page:
+          type: integer
+          description: Current page number
+        page_size:
+          type: integer
+          description: Items per page
+
+    CategoryCreateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Category name (must be unique)
+        description:
+          type: string
+          description: Category description
+
+    CategoryUpdateRequest:
+      type: object
+      required:
+        - category_id
+      properties:
+        category_id:
+          type: string
+          format: uuid
+          description: ID of category to update
+        name:
+          type: string
+          description: New category name
+        description:
+          type: string
+          description: New category description
+
+    CategoryIdRequest:
+      type: object
+      required:
+        - category_id
+      properties:
+        category_id:
+          type: string
+          format: uuid
+          description: Category ID
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
