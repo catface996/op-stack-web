@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
         proxy: {
           // All API requests routed through gateway
           '/api': {
-            target: 'http://localhost:8888',
+            target: 'http://localhost:8080',
             changeOrigin: true,
             secure: false,
           },
