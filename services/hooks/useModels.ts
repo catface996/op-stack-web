@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { listModels } from '../api/models';
-import type { ModelDTO, ModelListRequest } from '../api/types';
+import type { ModelDTO, ModelListRequest, ListModelsResponse } from '../api/types';
 
 const DEFAULT_PAGE_SIZE = 8;
 
@@ -56,10 +56,17 @@ export function useModels(options: UseModelsOptions = {}): UseModelsResult {
 
       const response = await listModels(request);
 
-      // Constitution: API Pagination Response Format - use content/totalElements/totalPages
-      setModels(response.content || []);
-      setTotal(response.totalElements || 0);
-      setTotalPages(response.totalPages || 1);
+      // Check for business-level success (API returns HTTP 200 but with success: false on errors)
+      const isSuccess = response.code === 0 || response.success === true;
+      if (isSuccess && response.data) {
+        // Constitution: API Pagination Response Format - use content/totalElements/totalPages
+        setModels(response.data.content || []);
+        setTotal(response.data.totalElements || 0);
+        setTotalPages(response.data.totalPages || 1);
+      } else {
+        setError(response.message || 'Failed to load models');
+        setModels([]);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load models';
       setError(message);

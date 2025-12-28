@@ -48,3 +48,13 @@ export { usePromptTemplate, type UsePromptTemplateResult } from './usePromptTemp
 // Model Management (Feature: 008-model-api-integration)
 export { useModels } from './useModels';
 export { useModelMutations } from './useModelMutations';
+
+// Agent Management (Feature: 012-agent-api-integration)
+export {
+  useAgents,
+  toFrontendAgent,
+  fromApiRole,
+  toApiRole,
+  type AgentWithApiFields,
+} from './useAgents';
+export { useAgent } from './useAgent';

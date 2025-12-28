@@ -5,6 +5,7 @@
  * Feature: 005-api-reintegration
  * Feature: 007-prompt-template-api
  * Feature: 008-model-api-integration
+ * Feature: 012-agent-api-integration
  */
 
 export * from './types';
@@ -15,3 +16,4 @@ export * from './nodes';
 export * from './prompt-templates';
 export * from './template-usages';
 export * from './models';
+export * from './agents';

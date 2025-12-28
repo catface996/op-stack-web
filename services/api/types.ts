@@ -197,6 +197,7 @@ export const HTTP_STATUS = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  LOCKED: 423,
   INTERNAL_SERVER_ERROR: 500,
 } as const;
 
@@ -209,6 +210,7 @@ export const ERROR_MESSAGES: Record<number, string> = {
   [HTTP_STATUS.FORBIDDEN]: 'You do not have permission to perform this action',
   [HTTP_STATUS.NOT_FOUND]: 'The requested resource was not found',
   [HTTP_STATUS.CONFLICT]: 'Operation conflict, please refresh and try again',
+  [HTTP_STATUS.LOCKED]: 'Cannot modify agent while it is working',
   [HTTP_STATUS.INTERNAL_SERVER_ERROR]: 'Service temporarily unavailable, please try again later',
 };
 
@@ -1392,3 +1394,190 @@ export type UpdateReportTemplateResponse = ApiResponse<ReportTemplateDTO>;
 
 /** Delete report template response */
 export type DeleteReportTemplateResponse = ApiResponse<void>;
+
+// ============================================================================
+// Agent Types (Feature: 012-agent-api-integration)
+// ============================================================================
+
+/**
+ * Agent role enum (backend format - uppercase codes)
+ */
+export type AgentRoleDTO = 'GLOBAL_SUPERVISOR' | 'TEAM_SUPERVISOR' | 'WORKER' | 'SCOUTER';
+
+/**
+ * Agent status enum
+ */
+export type AgentStatusDTO = 'IDLE' | 'THINKING' | 'WORKING' | 'COMPLETED' | 'WAITING' | 'ERROR';
+
+/**
+ * Agent DTO from API (flat structure - no nested config)
+ */
+export interface AgentDTO {
+  /** Agent ID (int64) */
+  id: number;
+  /** Display name (max 100 chars) */
+  name: string;
+  /** Agent role in hierarchy */
+  role: AgentRoleDTO;
+  /** Area of expertise */
+  specialty?: string;
+  /** Prompt template ID */
+  promptTemplateId?: number;
+  /** Prompt template name (read-only, joined from template) */
+  promptTemplateName?: string;
+  /** AI model identifier (e.g., "gemini-2.0-flash") */
+  model?: string;
+  /** Temperature parameter (0.0-2.0) */
+  temperature?: number;
+  /** Top P parameter (0.0-1.0) */
+  topP?: number;
+  /** Maximum output tokens */
+  maxTokens?: number;
+  /** Maximum runtime in seconds */
+  maxRuntime?: number;
+  /** Array of assigned tool IDs (UUID strings) */
+  toolIds?: string[];
+  /** Count of warning findings */
+  warnings: number;
+  /** Count of critical findings */
+  critical: number;
+  /** IDs of teams this agent belongs to */
+  teamIds: number[];
+  /** Creation timestamp (ISO 8601) */
+  createdAt: string;
+  /** Last update timestamp (ISO 8601) */
+  updatedAt: string;
+}
+
+/**
+ * Agent configuration template (predefined templates from backend)
+ */
+export interface AgentTemplateDTO {
+  /** Template ID */
+  id: number;
+  /** Template name */
+  name: string;
+  /** Template description */
+  description: string;
+  /** Suggested role */
+  recommendedRole?: AgentRoleDTO;
+  /** Template system instruction */
+  systemInstruction: string;
+  /** Suggested model */
+  recommendedModel?: string;
+  /** Suggested temperature */
+  recommendedTemperature?: number;
+}
+
+// ============================================================================
+// Agent Request Types (Feature: 012-agent-api-integration)
+// ============================================================================
+
+/**
+ * List agents request
+ * POST /api/service/v1/agents/list
+ */
+export interface ListAgentsRequest {
+  /** Filter by role */
+  role?: AgentRoleDTO;
+  /** Filter by team ID */
+  teamId?: number;
+  /** Search by name or specialty */
+  keyword?: string;
+  /** Page number (1-based, default 1) */
+  page?: number;
+  /** Page size (default 10, max 100) */
+  size?: number;
+}
+
+/**
+ * Get agent request
+ * POST /api/service/v1/agents/get
+ */
+export interface GetAgentRequest {
+  /** Agent ID (required) */
+  id: number;
+}
+
+/**
+ * Create agent request
+ * POST /api/service/v1/agents/create
+ */
+export interface CreateAgentRequest {
+  /** Display name (required, max 100 chars) */
+  name: string;
+  /** Agent role (default: WORKER) */
+  role?: AgentRoleDTO;
+  /** Area of expertise */
+  specialty?: string;
+  /** Prompt template ID */
+  promptTemplateId?: number;
+  /** AI model identifier */
+  model?: string;
+  /** Temperature parameter (0.0-2.0) */
+  temperature?: number;
+  /** Top P parameter (0.0-1.0) */
+  topP?: number;
+  /** Maximum output tokens */
+  maxTokens?: number;
+  /** Maximum runtime in seconds */
+  maxRuntime?: number;
+}
+
+/**
+ * Update agent request (unified - basic info + LLM config)
+ * POST /api/service/v1/agents/update
+ */
+export interface UpdateAgentRequest {
+  /** Agent ID (required) */
+  id: number;
+  /** New display name */
+  name?: string;
+  /** New specialty */
+  specialty?: string;
+  /** Prompt template ID */
+  promptTemplateId?: number;
+  /** AI model identifier */
+  model?: string;
+  /** Temperature parameter (0.0-2.0) */
+  temperature?: number;
+  /** Top P parameter (0.0-1.0) */
+  topP?: number;
+  /** Maximum output tokens */
+  maxTokens?: number;
+  /** Maximum runtime in seconds */
+  maxRuntime?: number;
+  /** Array of tool IDs (UUID strings, full replacement semantics) */
+  toolIds?: string[];
+}
+
+/**
+ * Delete agent request
+ * POST /api/service/v1/agents/delete
+ */
+export interface DeleteAgentRequest {
+  /** Agent ID (required) */
+  id: number;
+}
+
+// ============================================================================
+// Agent Response Types (Feature: 012-agent-api-integration)
+// ============================================================================
+
+/** List agents response */
+export type AgentListResponse = ApiResponse<PageResult<AgentDTO>>;
+
+/** Get agent detail response */
+export type AgentDetailResponse = ApiResponse<AgentDTO>;
+
+/** Create agent response */
+export type CreateAgentResponse = ApiResponse<AgentDTO>;
+
+/** Update agent response */
+export type UpdateAgentResponse = ApiResponse<AgentDTO>;
+
+/** Delete agent response */
+export type DeleteAgentResponse = ApiResponse<void>;
+
+/** List agent templates response */
+export type AgentTemplateListResponse = ApiResponse<AgentTemplateDTO[]>;
