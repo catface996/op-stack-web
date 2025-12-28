@@ -36,7 +36,6 @@ import { useNodeAgents } from '../services/hooks/useNodeAgents';
 import { ApiError } from '../services/api/client';
 import type { ResourceDTO, ResourceStatus, NodeDTO, AgentDTO } from '../services/api/types';
 import StyledSelect from './ui/StyledSelect';
-import TopologyGraph from './TopologyGraph';
 
 interface ApiResourceDetailViewProps {
   resourceId: number;
@@ -139,14 +138,6 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
   useEffect(() => {
     fetchResource();
   }, [resourceId]);
-
-  // Handle navigation to a subgraph's topology view
-  // NOTE: This hook MUST be before any early returns to follow React's rules of hooks
-  const handleNavigateToSubgraph = useCallback((subgraphId: number) => {
-    // Navigate to subgraph resource detail - for now just log, can be enhanced
-    console.log('Navigate to subgraph:', subgraphId);
-    // Could trigger navigation to that resource's detail page
-  }, []);
 
   if (loading) {
     return (
@@ -403,16 +394,6 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
     </div>
   );
 
-  // Check if resource is a subgraph (has isSubgraph attribute or resourceTypeCode contains 'subgraph')
-  // TODO: Adjust this logic based on actual backend data structure
-  const isSubgraph = resource.attributes
-    ? JSON.parse(resource.attributes)?.isSubgraph === true
-    : false;
-
-  // For testing: Always show topology graph to verify API calls
-  // Remove this line after testing
-  const showTopologyGraph = true; // isSubgraph;
-
   const renderTopologiesTab = () => {
     // Card view component - matches TopologiesManagement card style
     const renderCardView = () => (
@@ -603,22 +584,6 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
           {!topologiesError && nodeTopologies.length > 0 && (
             <div className="pb-4">
               {topologiesViewMode === 'card' ? renderCardView() : renderListView()}
-
-              {/* Show topology graph if this is a subgraph */}
-              {isSubgraph && (
-                <div className="mt-6 pt-6 border-t border-slate-800">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Topology Graph Preview</h4>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden" style={{ height: '400px' }}>
-                    <TopologyGraph
-                      resourceId={resource.id}
-                      onNodeClick={(nodeId) => console.log('Node clicked:', nodeId)}
-                      onNodeDoubleClick={(nodeId) => console.log('Node double-clicked:', nodeId)}
-                      onNavigateToSubgraph={handleNavigateToSubgraph}
-                      showLegend={true}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>

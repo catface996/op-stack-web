@@ -410,6 +410,7 @@ export interface RelationshipCreateRequest {
   relationshipType: RelationshipType;  // Backend field name is relationshipType
   direction: RelationshipDirection;
   strength: RelationshipStrength;  // Backend expects string enum
+  topologyId: number;
   description?: string;
 }
 
@@ -1394,6 +1395,74 @@ export type UpdateReportTemplateResponse = ApiResponse<ReportTemplateDTO>;
 
 /** Delete report template response */
 export type DeleteReportTemplateResponse = ApiResponse<void>;
+
+// ============================================================================
+// Topology Report Template Binding Types (Feature: 014-topology-report-template)
+// ============================================================================
+
+/**
+ * Bind report templates to topology request
+ * POST /api/service/v1/topologies/report-templates/bind
+ */
+export interface BindTopologyReportTemplatesRequest {
+  /** Topology ID (required) */
+  topologyId: number;
+  /** Array of report template IDs to bind (required) */
+  reportTemplateIds: number[];
+}
+
+/**
+ * Unbind report templates from topology request
+ * POST /api/service/v1/topologies/report-templates/unbind
+ */
+export interface UnbindTopologyReportTemplatesRequest {
+  /** Topology ID (required) */
+  topologyId: number;
+  /** Array of report template IDs to unbind (required) */
+  reportTemplateIds: number[];
+}
+
+/**
+ * Query bound report templates request
+ * POST /api/service/v1/topologies/report-templates/bound
+ */
+export interface QueryBoundReportTemplatesRequest {
+  /** Topology ID (required) */
+  topologyId: number;
+  /** Page number (1-based, default 1) */
+  page?: number;
+  /** Page size (default 20, max 100) */
+  size?: number;
+  /** Search keyword (matches name, description) */
+  keyword?: string;
+}
+
+/**
+ * Query unbound report templates request
+ * POST /api/service/v1/topologies/report-templates/unbound
+ */
+export interface QueryUnboundReportTemplatesRequest {
+  /** Topology ID (required) */
+  topologyId: number;
+  /** Page number (1-based, default 1) */
+  page?: number;
+  /** Page size (default 20, max 100) */
+  size?: number;
+  /** Search keyword (matches name, description) */
+  keyword?: string;
+}
+
+/** Bind report templates response */
+export type BindTopologyReportTemplatesResponse = ApiResponse<void>;
+
+/** Unbind report templates response */
+export type UnbindTopologyReportTemplatesResponse = ApiResponse<void>;
+
+/** Query bound report templates response */
+export type QueryBoundReportTemplatesResponse = ApiResponse<PageResult<ReportTemplateDTO>>;
+
+/** Query unbound report templates response */
+export type QueryUnboundReportTemplatesResponse = ApiResponse<PageResult<ReportTemplateDTO>>;
 
 // ============================================================================
 // Agent Types (Feature: 012-agent-api-integration)

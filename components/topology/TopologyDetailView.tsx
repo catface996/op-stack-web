@@ -27,12 +27,15 @@ import {
   PanelRightClose,
   PanelRightOpen,
   List,
+  X,
 } from 'lucide-react';
+import { TopologyReportTemplates } from './TopologyReportTemplates';
 
 interface TopologyDetailViewProps {
   topologyId: number;
   onBack: () => void;
   onViewResource: (resourceId: number) => void;
+  onNavigateToDiagnosis?: () => void;
 }
 
 // Default operator ID (hardcoded until auth is implemented)
@@ -42,6 +45,7 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
   topologyId,
   onBack,
   onViewResource,
+  onNavigateToDiagnosis,
 }) => {
   // Topology data - T029: Using TopologyDTO instead of ResourceDTO
   const [topology, setTopology] = useState<TopologyDTO | null>(null);
@@ -70,6 +74,7 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
   // Dialog state
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<TopologyMember | null>(null);
+  const [showReportTemplates, setShowReportTemplates] = useState(false);
 
   // Fetch topology details - T028: Uses topologyApi.get() instead of resourceApi.get()
   const fetchTopology = useCallback(async () => {
@@ -167,6 +172,7 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
       relationshipType: relationshipType,
       direction: 'UNIDIRECTIONAL' as const,
       strength: 'STRONG' as const,
+      topologyId: topologyId,
     };
 
     console.log('[TopologyDetailView] Creating relationship:', requestData);
@@ -304,6 +310,18 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => window.open(`/diagnosis?topologyId=${topologyId}`, '_blank')}
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-bold transition-colors shadow-lg shadow-indigo-900/20"
+          >
+            <Activity size={14} /> Diagnose Topology
+          </button>
+          <button
+            onClick={() => setShowReportTemplates(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded text-xs font-bold transition-colors"
+          >
+            <FileText size={14} /> Report Templates
+          </button>
+          <button
             onClick={() => setShowAddDialog(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold transition-colors shadow-lg shadow-cyan-900/20"
           >
@@ -412,6 +430,40 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
           error={memberMutations.error}
           cycleError={memberMutations.cycleError}
         />
+      )}
+
+      {/* Report Templates Modal */}
+      {showReportTemplates && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowReportTemplates(false)}
+          />
+          {/* Modal */}
+          <div className="relative w-[90%] max-w-6xl h-[80vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="shrink-0 px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
+              <div className="flex items-center gap-3">
+                <FileText size={20} className="text-cyan-400" />
+                <h2 className="text-lg font-bold text-white">Report Templates</h2>
+                <span className="text-xs text-slate-500">
+                  Topology: {topology.name}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowReportTemplates(false)}
+                className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {/* Modal Body */}
+            <div className="flex-1 overflow-hidden p-6">
+              <TopologyReportTemplates topologyId={topologyId} />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

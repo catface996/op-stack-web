@@ -102,6 +102,7 @@ const TopologyDetailWrapper: React.FC<{
         topologyId={topologyIdNum}
         onBack={() => navigate(-1)}
         onViewResource={onViewResource}
+        onNavigateToDiagnosis={() => navigate('/diagnosis')}
       />
     );
   }

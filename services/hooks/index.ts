@@ -61,3 +61,6 @@ export {
   type AgentWithApiFields,
 } from './useAgents';
 export { useAgent } from './useAgent';
+
+// Topology Report Template Binding (Feature: 014-topology-report-template)
+export { useTopologyReportTemplates } from './useTopologyReportTemplates';

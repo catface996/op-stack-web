@@ -6,8 +6,8 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { TopologyGroup, ReportTemplate } from '../types';
-import { useTopologies, useTopologyMutations, useReportTemplates } from '../services/hooks';
+import { TopologyGroup } from '../types';
+import { useTopologies, useTopologyMutations } from '../services/hooks';
 import type { TopologyListItem, TopologyFormData } from '../services/api/types';
 import {
   Search,
@@ -20,20 +20,14 @@ import {
   Save,
   Share2,
   Layers,
-  Calendar,
-  Tag,
   AlertTriangle,
   Zap,
-  Activity,
   Network,
   LayoutList,
   LayoutGrid,
   ArrowUpRight,
   Settings,
   Sparkles,
-  FileText,
-  ChevronDown,
-  Check,
   Loader2,
   RefreshCw
 } from 'lucide-react';
@@ -291,11 +285,6 @@ const TopologiesManagement: React.FC<TopologiesManagementProps> = ({
                             {tag}
                           </span>
                         ))}
-                        {tg.templateIds && tg.templateIds.length > 0 && (
-                          <span className="px-2 py-0.5 rounded bg-indigo-900/30 border border-indigo-500/30 text-[9px] font-bold text-indigo-400 uppercase tracking-tighter flex items-center gap-1">
-                            <FileText size={8} /> {tg.templateIds.length} TEMPLATES
-                          </span>
-                        )}
                       </div>
                     </div>
                     <div className="mt-5 pt-4 border-t border-slate-800/40 flex items-center justify-between shrink-0">
@@ -446,113 +435,6 @@ const TopologiesManagement: React.FC<TopologiesManagementProps> = ({
   );
 };
 
-// --- Sub-component: Multi-Select Dropdown for Templates ---
-
-const TemplateMultiSelect: React.FC<{
-    selectedIds: string[],
-    onChange: (ids: string[]) => void
-}> = ({ selectedIds, onChange }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [filter, setFilter] = useState('');
-    const dropdownRef = useRef<HTMLDivElement>(null);
-
-    // Use API to fetch report templates
-    const { templates, loading } = useReportTemplates({ size: 100, keyword: filter });
-
-    const toggleId = (id: string) => {
-        const next = selectedIds.includes(id) 
-            ? selectedIds.filter(x => x !== id) 
-            : [...selectedIds, id];
-        onChange(next);
-    };
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    // Find template name by ID
-    const getTemplateName = (id: string) => {
-        const tpl = templates.find(x => String(x.id) === id);
-        return tpl?.name || `Template #${id}`;
-    };
-
-    return (
-        <div className="relative" ref={dropdownRef}>
-            <div 
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-full bg-slate-950 border rounded-lg p-2.5 flex items-center justify-between cursor-pointer transition-all ${isOpen ? 'border-cyan-500 ring-1 ring-cyan-500/20' : 'border-slate-700 hover:border-slate-600'}`}
-            >
-                <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                    {selectedIds.length > 0 ? (
-                        selectedIds.map(id => (
-                            <div key={id} className="flex items-center gap-1 bg-indigo-900/40 text-indigo-300 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-500/30">
-                                {getTemplateName(id)}
-                                <X size={10} className="cursor-pointer hover:text-white" onClick={(e) => { e.stopPropagation(); toggleId(id); }} />
-                            </div>
-                        ))
-                    ) : (
-                        <span className="text-slate-500 text-sm">Select one or more blueprints...</span>
-                    )}
-                </div>
-                <ChevronDown size={16} className={`text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </div>
-
-            {isOpen && (
-                <div className="absolute z-[60] w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                    <div className="p-2 border-b border-slate-800 bg-slate-950/50">
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-2 text-slate-500" size={14} />
-                            <input 
-                                type="text"
-                                autoFocus
-                                value={filter}
-                                onChange={e => setFilter(e.target.value)}
-                                placeholder="Search templates..."
-                                className="w-full bg-slate-900 border border-slate-700 rounded-md py-1.5 pl-8 pr-3 text-xs text-white outline-none focus:border-cyan-500"
-                            />
-                        </div>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
-                        {loading ? (
-                            <div className="p-4 text-center">
-                                <Loader2 size={20} className="animate-spin text-cyan-400 mx-auto" />
-                            </div>
-                        ) : templates.length > 0 ? (
-                            templates.map(tpl => {
-                                const isSelected = selectedIds.includes(String(tpl.id));
-                                return (
-                                    <div 
-                                        key={tpl.id}
-                                        onClick={() => toggleId(String(tpl.id))}
-                                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-indigo-900/20 text-white' : 'text-slate-400 hover:bg-slate-800'}`}
-                                    >
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <div className="text-xs font-bold truncate">{tpl.name}</div>
-                                                <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-500">{tpl.category}</span>
-                                            </div>
-                                            <div className="text-[10px] text-slate-500 truncate mt-0.5">{tpl.description}</div>
-                                        </div>
-                                        {isSelected && <Check size={14} className="text-cyan-400 shrink-0 ml-2" />}
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="p-4 text-center text-xs text-slate-600 italic">No templates found.</div>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
 const TopologyFormModal: React.FC<{
   tg: TopologyListItem | null,
   onClose: () => void,
@@ -563,8 +445,7 @@ const TopologyFormModal: React.FC<{
   const [formData, setFormData] = useState<TopologyFormData>({
     name: tg?.name || '',
     description: tg?.description || '',
-    tags: tg?.tags || [],
-    templateIds: tg?.templateIds || []
+    tags: tg?.tags || []
   });
   const [tagInput, setTagInput] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -632,18 +513,6 @@ const TopologyFormModal: React.FC<{
                           placeholder="Outline the purpose of this logical grouping..."
                           disabled={loading}
                         />
-                    </div>
-
-                    {/* Improved Template Binding Section */}
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <FileText size={12} /> Bind Report Blueprints
-                        </label>
-                        <TemplateMultiSelect
-                            selectedIds={formData.templateIds || []}
-                            onChange={(ids) => setFormData({ ...formData, templateIds: ids })}
-                        />
-                        <div className="mt-1.5 text-[9px] text-slate-500 italic">Bind templates to enable one-click synthesis after topological diagnosis.</div>
                     </div>
 
                     <div>
@@ -714,21 +583,6 @@ const TopologyDetailModal: React.FC<{ tg: TopologyListItem, onClose: () => void 
                     </div>
                 </div>
 
-                {tg.templateIds && tg.templateIds.length > 0 && (
-                    <div className="p-4 bg-slate-950/40 rounded-xl border border-slate-800">
-                        <div className="text-[9px] text-slate-500 font-bold uppercase mb-3 tracking-widest flex items-center gap-2"><FileText size={10}/> Bound Templates</div>
-                        <div className="space-y-1.5">
-                            {tg.templateIds.map(id => {
-                                const tpl = INITIAL_REPORT_TEMPLATES.find(x => x.id === id);
-                                return (
-                                    <div key={id} className="text-xs text-indigo-300 bg-indigo-950/40 p-2 rounded border border-indigo-900/30 font-bold">
-                                        {tpl?.name || id}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
             </div>
             <div className="p-5 bg-slate-950/80 border-t border-slate-800 flex justify-end">
                 <button onClick={onClose} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-black tracking-widest rounded-lg transition-all">Close segment</button>
