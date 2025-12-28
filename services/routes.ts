@@ -10,6 +10,7 @@ export const ROUTES = {
   RESOURCES: '/resources',
   RESOURCE_DETAIL: '/resources/:id',
   AGENTS: '/agents',
+  AGENT_CONFIG: '/agents/:id/config',
   AGENTS_PROMPTS: '/agents/prompts',
   AGENTS_MODELS: '/agents/models',
   AGENTS_TOOLS: '/agents/tools',
@@ -25,6 +26,7 @@ export const ROUTES = {
 export const paths = {
   topologyDetail: (id: string | number) => `/topologies/${id}`,
   resourceDetail: (id: string | number) => `/resources/${id}`,
+  agentConfig: (id: string | number) => `/agents/${id}/config`,
   reportDetail: (id: string) => `/reports/${id}`,
 };
 

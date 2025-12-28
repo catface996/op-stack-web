@@ -1,19 +1,22 @@
 
-import React, { useState, useMemo } from 'react';
-import { Team, Agent, AgentRole, AgentStatus, AgentConfig, AgentExecutionRecord, TraceStep } from '../types';
-import { AgentConfigModal } from './AgentConfigModal';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Agent, AgentRole, AgentStatus, AgentConfig, AgentExecutionRecord, TraceStep } from '../types';
 import { generateMockHistory } from '../services/mockData';
-import { 
-  Search, 
-  Users, 
-  Bot, 
-  Cpu, 
-  Server, 
-  Activity, 
-  LayoutList, 
-  LayoutGrid, 
-  Settings, 
-  ChevronLeft, 
+import { useAgents, AgentWithApiFields } from '../services/hooks/useAgents';
+import type { AgentRoleDTO } from '../services/api/types';
+import { paths } from '../services/routes';
+import {
+  Search,
+  Users,
+  Bot,
+  Cpu,
+  Server,
+  Activity,
+  LayoutList,
+  LayoutGrid,
+  Settings,
+  ChevronLeft,
   ChevronRight,
   AlertTriangle,
   AlertOctagon,
@@ -36,13 +39,16 @@ import {
   Terminal,
   MessageSquare,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Plus,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Pencil,
+  Save
 } from 'lucide-react';
 
 interface AgentManagementProps {
-  teams: Team[];
-  onUpdateAgentConfig: (teamId: string, agentId: string, config: AgentConfig) => void;
-  onDeleteAgent: (teamId: string, agentId: string) => void;
   onManagePrompts: () => void;
   onManageModels: () => void;
   onManageTools: () => void;
@@ -51,50 +57,98 @@ interface AgentManagementProps {
 // 默认分页 8，确保网格布局美观
 const ITEMS_PER_PAGE = 8;
 
-interface FlatAgent extends Agent {
-    teamId: string;
-    teamName: string;
-    resourceId: string;
+// Map UI role filter to API role
+function mapRoleFilterToApiRole(filter: 'ALL' | 'SUPERVISOR' | 'WORKER'): AgentRoleDTO | undefined {
+  switch (filter) {
+    case 'SUPERVISOR':
+      // We'll handle supervisor types (both GLOBAL_SUPERVISOR and TEAM_SUPERVISOR) in the filter
+      return 'TEAM_SUPERVISOR'; // API doesn't support combined filter, will do client-side
+    case 'WORKER':
+      return 'WORKER';
+    default:
+      return undefined;
+  }
 }
 
-const AgentManagement: React.FC<AgentManagementProps> = ({ 
-    teams, 
-    onUpdateAgentConfig,
-    onDeleteAgent,
+const AgentManagement: React.FC<AgentManagementProps> = ({
     onManagePrompts,
     onManageModels,
     onManageTools
 }) => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState<'list' | 'card'>('card'); 
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'SUPERVISOR' | 'WORKER'>('ALL');
-  const [configAgent, setConfigAgent] = useState<FlatAgent | null>(null);
-  const [viewingAgent, setViewingAgent] = useState<FlatAgent | null>(null);
-  const [agentToDelete, setAgentToDelete] = useState<FlatAgent | null>(null);
-  const [auditAgent, setAuditAgent] = useState<FlatAgent | null>(null);
+  const [viewingAgent, setViewingAgent] = useState<AgentWithApiFields | null>(null);
+  const [agentToDelete, setAgentToDelete] = useState<AgentWithApiFields | null>(null);
+  const [auditAgent, setAuditAgent] = useState<AgentWithApiFields | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Edit mode state for viewing agent modal
+  const [isEditingAgent, setIsEditingAgent] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editSpecialty, setEditSpecialty] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
-  const allAgents: FlatAgent[] = useMemo(() => {
-    return teams.flatMap(team => [
-        { ...team.supervisor, teamId: team.id, teamName: team.name, resourceId: team.resourceId },
-        ...team.members.map(member => ({ ...member, teamId: team.id, teamName: team.name, resourceId: team.resourceId }))
-    ]);
-  }, [teams]);
+  // Use the API hook for fetching agents
+  const {
+    agents,
+    loading,
+    error,
+    page: currentPage,
+    totalPages,
+    total,
+    roleFilter: apiRoleFilter,
+    keyword,
+    setPage: setCurrentPage,
+    setRoleFilter: setApiRoleFilter,
+    setKeyword,
+    refresh,
+    handleCreate,
+    handleUpdate,
+    handleDelete,
+    creating,
+    updating,
+    deleting,
+  } = useAgents({
+    page: 1,
+    size: ITEMS_PER_PAGE,
+    // API filters will be applied via the hook
+    role: roleFilter === 'ALL' ? undefined : roleFilter === 'WORKER' ? 'WORKER' : undefined,
+    keyword: searchTerm.trim() || undefined,
+  });
 
+  // Handle role filter change - update API filter and reset page
+  const handleRoleFilterChange = (newFilter: 'ALL' | 'SUPERVISOR' | 'WORKER') => {
+    setRoleFilter(newFilter);
+    // For supervisor filter, we need client-side filtering since API doesn't support combined role filter
+    if (newFilter === 'WORKER') {
+      setApiRoleFilter('WORKER');
+    } else {
+      setApiRoleFilter(undefined);
+    }
+    setCurrentPage(1);
+  };
+
+  // Handle search term change with debounce effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setKeyword(searchTerm.trim());
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, setKeyword]);
+
+  // Client-side filter for supervisor types (since API can't combine GLOBAL_SUPERVISOR and TEAM_SUPERVISOR)
   const filteredAgents = useMemo(() => {
-      return allAgents.filter(agent => {
-          const matchesSearch = agent.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              (agent.specialty || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              agent.teamName.toLowerCase().includes(searchTerm.toLowerCase());
-          const matchesRole = roleFilter === 'ALL' ? true : 
-                            roleFilter === 'SUPERVISOR' ? agent.role === AgentRole.TEAM_SUPERVISOR : 
-                            agent.role === AgentRole.WORKER;
-          return matchesSearch && matchesRole;
-      });
-  }, [allAgents, searchTerm, roleFilter]);
+    if (roleFilter === 'SUPERVISOR') {
+      return agents.filter(agent =>
+        agent.role === AgentRole.TEAM_SUPERVISOR || agent.role === AgentRole.GLOBAL_SUPERVISOR
+      );
+    }
+    return agents;
+  }, [agents, roleFilter]);
 
-  const totalPages = Math.ceil(filteredAgents.length / ITEMS_PER_PAGE);
-  const paginatedAgents = filteredAgents.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const paginatedAgents = filteredAgents;
 
   const getStatusColor = (status: AgentStatus) => {
     switch (status) {
@@ -113,8 +167,9 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
             <div>
                 <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
                     <Users className="text-cyan-400" /> Agents Registry
+                    {loading && <Loader2 size={18} className="animate-spin text-slate-500" />}
                 </h2>
-                <p className="text-slate-400 text-xs mt-1 font-medium">Monitoring and managing {allAgents.length} autonomous operation units across the cluster.</p>
+                <p className="text-slate-400 text-xs mt-1 font-medium">Monitoring and managing {total} autonomous operation units across the cluster.</p>
             </div>
             <div className="flex gap-2">
                  <button onClick={onManagePrompts} className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-xs font-bold text-slate-300 hover:text-white transition-colors">
@@ -126,6 +181,9 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
                  <button onClick={onManageTools} className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-xs font-bold text-slate-300 hover:text-white transition-colors">
                      <Wrench size={14} /> Tools
                  </button>
+                 <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold transition-colors shadow-lg shadow-cyan-900/20">
+                     <Plus size={14} /> New Agent
+                 </button>
             </div>
         </div>
 
@@ -134,19 +192,19 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
             <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-center">
                 <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
-                    <input 
-                        type="text" 
-                        placeholder="Search system units..." 
-                        value={searchTerm} 
-                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
-                        className="w-full bg-slate-950 border border-slate-700/60 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 text-slate-200 transition-all" 
+                    <input
+                        type="text"
+                        placeholder="Search system units..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700/60 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 text-slate-200 transition-all"
                     />
                 </div>
                 <div className="flex bg-slate-950/80 rounded-lg p-1 border border-slate-800">
                     {[{key: 'ALL', label: 'All'}, {key: 'SUPERVISOR', label: 'Supervisor'}, {key: 'WORKER', label: 'Worker'}].map(({key, label}) => (
                         <button
                             key={key}
-                            onClick={() => { setRoleFilter(key as any); setCurrentPage(1); }}
+                            onClick={() => handleRoleFilterChange(key as 'ALL' | 'SUPERVISOR' | 'WORKER')}
                             className={`px-4 py-1.5 text-[10px] font-bold rounded-md transition-all ${roleFilter === key ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/20' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             {label}
@@ -155,6 +213,14 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
                 </div>
             </div>
             <div className="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-end">
+                <button
+                    onClick={refresh}
+                    disabled={loading}
+                    className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-cyan-400 transition-all disabled:opacity-50"
+                    title="Refresh agent list"
+                >
+                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                </button>
                 <div className="flex bg-slate-950/80 rounded-lg p-1 border border-slate-800">
                     <button onClick={() => setViewMode('list')} className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-slate-800 text-cyan-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
                         <LayoutList size={16} />
@@ -166,71 +232,95 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
             </div>
         </div>
 
+        {/* Error Banner */}
+        {error && (
+            <div className="mb-4 p-4 bg-red-950/30 border border-red-900/50 rounded-xl flex items-center gap-3 shrink-0">
+                <AlertCircle size={18} className="text-red-400 shrink-0" />
+                <span className="text-sm text-red-300">{error}</span>
+                <button
+                    onClick={refresh}
+                    className="ml-auto px-3 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-300 rounded text-xs font-bold transition-colors"
+                >
+                    Retry
+                </button>
+            </div>
+        )}
+
         {/* Agents Grid - Redesigned Cards */}
         <div className="flex-1 overflow-auto custom-scrollbar">
             {paginatedAgents.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
-                    {paginatedAgents.map(agent => (
-                        <div key={agent.id} className="relative bg-slate-900 border border-slate-800/80 rounded-xl hover:border-cyan-500/40 hover:bg-slate-800/40 transition-all group flex flex-col min-h-[220px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-cyan-950/10">
-                            {/* Decorative Top Line */}
-                            <div className={`h-1 w-full ${agent.role === AgentRole.TEAM_SUPERVISOR ? 'bg-indigo-600' : 'bg-cyan-600'} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
-                            
-                            <div className="p-5 flex flex-col flex-1">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className={`p-2 rounded-lg ${agent.role === AgentRole.TEAM_SUPERVISOR ? 'bg-indigo-950/30 text-indigo-400 border border-indigo-500/20' : 'bg-slate-950 text-slate-400 border border-slate-800'}`}>
-                                        {agent.role === AgentRole.TEAM_SUPERVISOR ? <Shield size={20} /> : <Zap size={20} />}
-                                    </div>
-                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border tracking-wider ${getStatusColor(agent.status)}`}>
-                                        {agent.status}
-                                    </span>
-                                </div>
+                    {paginatedAgents.map(agent => {
+                        const isSupervisor = agent.role === AgentRole.TEAM_SUPERVISOR || agent.role === AgentRole.GLOBAL_SUPERVISOR;
+                        const roleLabel = agent.role === AgentRole.GLOBAL_SUPERVISOR ? 'Global Orchestrator' :
+                                         agent.role === AgentRole.TEAM_SUPERVISOR ? 'Strategic Coordinator' :
+                                         agent.role === AgentRole.SCOUTER ? 'Discovery Unit' : 'Tactical Unit';
+                        const teamCount = agent.teamIds?.length || 0;
 
-                                <div className="mb-4">
-                                    <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight">{agent.name}</h3>
-                                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">
-                                        {agent.role === AgentRole.TEAM_SUPERVISOR ? 'Strategic Coordinator' : 'Tactical Unit'}
-                                    </div>
-                                </div>
+                        return (
+                            <div key={agent.id} className="relative bg-slate-900 border border-slate-800/80 rounded-xl hover:border-cyan-500/40 hover:bg-slate-800/40 transition-all group flex flex-col min-h-[220px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-cyan-950/10">
+                                {/* Decorative Top Line */}
+                                <div className={`h-1 w-full ${isSupervisor ? 'bg-indigo-600' : 'bg-cyan-600'} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
 
-                                <div className="space-y-2.5 flex-1">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
-                                            <Target size={12} className="text-slate-500" />
+                                <div className="p-5 flex flex-col flex-1">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`p-2 rounded-lg ${isSupervisor ? 'bg-indigo-950/30 text-indigo-400 border border-indigo-500/20' : 'bg-slate-950 text-slate-400 border border-slate-800'}`}>
+                                            {isSupervisor ? <Shield size={20} /> : <Zap size={20} />}
                                         </div>
-                                        <div className="min-w-0">
-                                            <div className="text-[10px] text-slate-500 leading-none mb-1">Expertise</div>
-                                            <div className="text-xs text-slate-200 font-bold truncate">{agent.specialty || 'Generalist'}</div>
-                                        </div>
+                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border tracking-wider ${getStatusColor(agent.status)}`}>
+                                            {agent.status}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
-                                            <Layers size={12} className="text-slate-500" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="text-[10px] text-slate-500 leading-none mb-1">Deployment</div>
-                                            <div className="text-xs text-slate-300 truncate font-medium">{agent.teamName}</div>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div className="mt-5 pt-4 border-t border-slate-800/40 flex justify-between items-center shrink-0">
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => setViewingAgent(agent)} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-cyan-400 transition-all" title="View Intelligence Profile"><Eye size={15} /></button>
-                                        <button onClick={() => setConfigAgent(agent)} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-cyan-400 transition-all" title="Modify Protocol"><Settings size={15} /></button>
-                                        {agent.role === AgentRole.WORKER && (
-                                            <button onClick={() => setAgentToDelete(agent)} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-red-400 transition-all" title="Decommission"><Trash2 size={15} /></button>
-                                        )}
+                                    <div className="mb-4">
+                                        <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight">{agent.name}</h3>
+                                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">
+                                            {roleLabel}
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={() => setAuditAgent(agent)}
-                                        className="px-2.5 py-1 rounded bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold transition-all flex items-center gap-1.5"
-                                    >
-                                        Trace log <ArrowUpRight size={12} />
-                                    </button>
+
+                                    <div className="space-y-2.5 flex-1">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
+                                                <Target size={12} className="text-slate-500" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] text-slate-500 leading-none mb-1">Expertise</div>
+                                                <div className="text-xs text-slate-200 font-bold truncate">{agent.specialty || 'Generalist'}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
+                                                <Layers size={12} className="text-slate-500" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] text-slate-500 leading-none mb-1">Teams</div>
+                                                <div className="text-xs text-slate-300 truncate font-medium">
+                                                    {teamCount > 0 ? `${teamCount} team${teamCount > 1 ? 's' : ''}` : 'Unassigned'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-5 pt-4 border-t border-slate-800/40 flex justify-between items-center shrink-0">
+                                        <div className="flex items-center gap-1">
+                                            <button onClick={() => setViewingAgent(agent)} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-cyan-400 transition-all" title="View Intelligence Profile"><Eye size={15} /></button>
+                                            <button onClick={() => navigate(paths.agentConfig(agent.id))} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-cyan-400 transition-all" title="Modify Protocol"><Settings size={15} /></button>
+                                            {agent.role === AgentRole.WORKER && (
+                                                <button onClick={() => setAgentToDelete(agent)} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-red-400 transition-all" title="Decommission"><Trash2 size={15} /></button>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => setAuditAgent(agent)}
+                                            className="px-2.5 py-1 rounded bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold transition-all flex items-center gap-1.5"
+                                        >
+                                            Trace log <ArrowUpRight size={12} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-slate-500 bg-slate-900/20 border border-dashed border-slate-800 rounded-2xl">
@@ -240,44 +330,194 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
             )}
         </div>
 
-        {/* Audit/Config Modals... (逻辑部分保持一致) */}
+        {/* Audit Modal */}
         {auditAgent && <AgentAuditModal agent={auditAgent} onClose={() => setAuditAgent(null)} />}
-        {configAgent && <AgentConfigModal agent={configAgent} onClose={() => setConfigAgent(null)} onSave={(newConfig) => { onUpdateAgentConfig(configAgent.teamId, configAgent.id, newConfig); setConfigAgent(null); }} />}
-        
+
         {viewingAgent && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border-t-4 border-t-cyan-600">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border-t-4 border-t-cyan-600">
                     <div className="p-5 bg-slate-950/50 border-b border-slate-800 flex justify-between items-center">
                         <h3 className="font-bold text-white flex items-center gap-2 text-sm uppercase tracking-widest"><Sparkles size={16} className="text-cyan-400" /> Unit intelligence profile</h3>
-                        <button onClick={() => setViewingAgent(null)} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
+                        <div className="flex items-center gap-2">
+                            {!isEditingAgent && (
+                                <button
+                                    onClick={() => {
+                                        setIsEditingAgent(true);
+                                        setEditName(viewingAgent.name);
+                                        setEditSpecialty(viewingAgent.specialty || '');
+                                        setEditError(null);
+                                    }}
+                                    className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-cyan-400 transition-all"
+                                    title="Edit basic info"
+                                >
+                                    <Pencil size={16} />
+                                </button>
+                            )}
+                            <button onClick={() => { setViewingAgent(null); setIsEditingAgent(false); setEditError(null); }} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
+                        </div>
                     </div>
-                    <div className="p-6 space-y-5">
+                    <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        {/* Edit Error Banner */}
+                        {editError && (
+                            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg flex items-center gap-2">
+                                <AlertCircle size={14} className="text-red-400 shrink-0" />
+                                <span className="text-xs text-red-300">{editError}</span>
+                            </div>
+                        )}
+
+                        {/* Agent Identity */}
                         <div className="flex items-center gap-5 p-5 bg-slate-950/80 rounded-xl border border-slate-800 shadow-inner">
                              <div className="p-4 bg-indigo-950/40 rounded-2xl text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-950/50"><Bot size={36} /></div>
-                             <div className="min-w-0">
-                                 <div className="text-xl font-black text-white truncate">{viewingAgent.name}</div>
-                                 <div className="text-[10px] text-indigo-400 font-mono font-bold tracking-widest uppercase mt-1">{viewingAgent.role}</div>
+                             <div className="min-w-0 flex-1">
+                                 {isEditingAgent ? (
+                                     <div className="space-y-3">
+                                         <div>
+                                             <label className="block text-[9px] text-slate-500 font-bold uppercase mb-1">Name</label>
+                                             <input
+                                                 type="text"
+                                                 value={editName}
+                                                 onChange={(e) => setEditName(e.target.value)}
+                                                 className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                                                 placeholder="Agent name"
+                                                 disabled={updating}
+                                             />
+                                         </div>
+                                         <div>
+                                             <label className="block text-[9px] text-slate-500 font-bold uppercase mb-1">Specialty</label>
+                                             <input
+                                                 type="text"
+                                                 value={editSpecialty}
+                                                 onChange={(e) => setEditSpecialty(e.target.value)}
+                                                 className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                                                 placeholder="Agent specialty"
+                                                 disabled={updating}
+                                             />
+                                         </div>
+                                     </div>
+                                 ) : (
+                                     <>
+                                         <div className="text-xl font-black text-white truncate">{viewingAgent.name}</div>
+                                         <div className="text-[10px] text-indigo-400 font-mono font-bold tracking-widest uppercase mt-1">{viewingAgent.role}</div>
+                                         {viewingAgent.specialty && (
+                                             <div className="text-xs text-slate-400 mt-1 truncate">{viewingAgent.specialty}</div>
+                                         )}
+                                     </>
+                                 )}
                              </div>
                         </div>
+
+                        {/* Findings Summary */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-yellow-950/20 p-4 rounded-xl border border-yellow-900/30">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertTriangle size={14} className="text-yellow-500" />
+                                    <span className="text-[9px] text-yellow-500/80 font-bold uppercase">Warnings</span>
+                                </div>
+                                <div className="text-2xl font-black text-yellow-400">{viewingAgent.findings?.warnings || 0}</div>
+                            </div>
+                            <div className="bg-red-950/20 p-4 rounded-xl border border-red-900/30">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertOctagon size={14} className="text-red-500" />
+                                    <span className="text-[9px] text-red-500/80 font-bold uppercase">Critical</span>
+                                </div>
+                                <div className="text-2xl font-black text-red-400">{viewingAgent.findings?.critical || 0}</div>
+                            </div>
+                        </div>
+
+                        {/* Team Assignments */}
+                        <div className="p-4 bg-slate-950/40 rounded-xl border border-slate-800">
+                            <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <Layers size={12} /> Team Assignments
+                            </div>
+                            <div className="text-sm text-slate-300">
+                                {viewingAgent.teamIds && viewingAgent.teamIds.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {viewingAgent.teamIds.map((teamId) => (
+                                            <span key={teamId} className="px-2 py-1 bg-slate-800 rounded text-xs font-mono">
+                                                Team #{teamId}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <span className="text-slate-500 italic">No team assignments</span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* System Instruction */}
                         <div className="p-5 bg-slate-950/40 rounded-xl border border-slate-800">
                             <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2"><Terminal size={12} /> Autonomous directive</div>
-                            <p className="text-xs text-slate-300 leading-relaxed italic font-medium bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
-                                "{viewingAgent.config?.systemInstruction || 'Standard autonomous protocol. Operates within defined mission constraints with minimal supervision.'}"
+                            <p className="text-xs text-slate-300 leading-relaxed font-medium bg-slate-900/50 p-3 rounded-lg border border-slate-800/50 whitespace-pre-wrap">
+                                {viewingAgent.config?.systemInstruction || 'Standard autonomous protocol. Operates within defined mission constraints with minimal supervision.'}
                             </p>
                         </div>
+
+                        {/* Configuration */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800">
                                 <div className="text-[9px] text-slate-500 font-bold uppercase mb-1">Model</div>
-                                <div className="text-xs text-white font-mono">{viewingAgent.config?.model || 'Gemini 2.5'}</div>
+                                <div className="text-xs text-white font-mono">{viewingAgent.config?.model || 'Not configured'}</div>
                             </div>
                             <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800">
                                 <div className="text-[9px] text-slate-500 font-bold uppercase mb-1">Temperature</div>
-                                <div className="text-xs text-white font-mono">{viewingAgent.config?.temperature || '0.3'}</div>
+                                <div className="text-xs text-white font-mono">{viewingAgent.config?.temperature ?? 'Default'}</div>
+                            </div>
+                        </div>
+
+                        {/* Timestamps */}
+                        <div className="grid grid-cols-2 gap-4 text-[10px]">
+                            <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800">
+                                <div className="text-slate-500 font-bold uppercase mb-1">Created</div>
+                                <div className="text-slate-400 font-mono">
+                                    {viewingAgent.createdAt ? new Date(viewingAgent.createdAt).toLocaleString() : 'N/A'}
+                                </div>
+                            </div>
+                            <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800">
+                                <div className="text-slate-500 font-bold uppercase mb-1">Updated</div>
+                                <div className="text-slate-400 font-mono">
+                                    {viewingAgent.updatedAt ? new Date(viewingAgent.updatedAt).toLocaleString() : 'N/A'}
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div className="p-5 bg-slate-950/80 border-t border-slate-800 flex justify-end">
-                        <button onClick={() => setViewingAgent(null)} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-black tracking-widest rounded-lg transition-colors">Close portal</button>
+                    <div className="p-5 bg-slate-950/80 border-t border-slate-800 flex justify-end gap-3">
+                        {isEditingAgent ? (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        setIsEditingAgent(false);
+                                        setEditError(null);
+                                    }}
+                                    disabled={updating}
+                                    className="px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (!editName.trim()) {
+                                            setEditError('Agent name is required');
+                                            return;
+                                        }
+                                        setEditError(null);
+                                        const success = await handleUpdate(viewingAgent.id, editName.trim(), editSpecialty.trim() || undefined);
+                                        if (success) {
+                                            setIsEditingAgent(false);
+                                            setViewingAgent(null);
+                                        } else {
+                                            setEditError(error || 'Failed to update agent');
+                                        }
+                                    }}
+                                    disabled={updating || !editName.trim()}
+                                    className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black tracking-widest rounded-lg transition-colors shadow-lg shadow-cyan-900/20 flex items-center gap-2"
+                                >
+                                    {updating ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                    {updating ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </>
+                        ) : (
+                            <button onClick={() => { setViewingAgent(null); setIsEditingAgent(false); }} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-black tracking-widest rounded-lg transition-colors">Close portal</button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -292,13 +532,54 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
                         </div>
                     </div>
                     <h3 className="font-bold text-xl text-white mb-2 tracking-tight">Decommission Unit?</h3>
-                    <p className="text-slate-400 text-sm mb-8 leading-relaxed">This action will permanently purge <span className="text-white font-black underline decoration-red-500/50">{agentToDelete.name}</span> from the neural network fabric.</p>
+                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">This action will permanently purge <span className="text-white font-black underline decoration-red-500/50">{agentToDelete.name}</span> from the neural network fabric.</p>
+                    {deleteError && (
+                        <div className="mb-4 p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-300 text-left">
+                            {deleteError}
+                        </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => setAgentToDelete(null)} className="px-4 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 text-xs font-bold transition-colors">Abort purge</button>
-                        <button onClick={() => { onDeleteAgent(agentToDelete.teamId, agentToDelete.id); setAgentToDelete(null); }} className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black tracking-widest shadow-lg shadow-red-900/20">Confirm purge</button>
+                        <button
+                            onClick={() => { setAgentToDelete(null); setDeleteError(null); }}
+                            disabled={deleting}
+                            className="px-4 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 text-xs font-bold transition-colors disabled:opacity-50"
+                        >
+                            Abort purge
+                        </button>
+                        <button
+                            onClick={async () => {
+                                setDeleteError(null);
+                                const success = await handleDelete(agentToDelete.id);
+                                if (success) {
+                                    setAgentToDelete(null);
+                                } else {
+                                    setDeleteError(error || 'Failed to delete agent');
+                                }
+                            }}
+                            disabled={deleting}
+                            className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black tracking-widest shadow-lg shadow-red-900/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {deleting ? <Loader2 size={14} className="animate-spin" /> : null}
+                            {deleting ? 'Deleting...' : 'Confirm purge'}
+                        </button>
                     </div>
                 </div>
             </div>
+        )}
+
+        {/* Add Agent Modal */}
+        {showAddModal && (
+            <AddAgentModal
+                onClose={() => setShowAddModal(false)}
+                onAdd={async (agent) => {
+                    const created = await handleCreate(agent.name, agent.specialty);
+                    if (created) {
+                        setShowAddModal(false);
+                    }
+                }}
+                saving={creating}
+                error={error}
+            />
         )}
 
         {/* Pagination Controls */}
@@ -328,10 +609,119 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
   );
 };
 
-// ... AgentAuditModal ...
-const AgentAuditModal: React.FC<{ agent: FlatAgent, onClose: () => void }> = ({ agent, onClose }) => {
+// Add Agent Modal Component
+const AddAgentModal: React.FC<{
+    onClose: () => void;
+    onAdd: (agent: { name: string; specialty: string }) => Promise<void>;
+    saving?: boolean;
+    error?: string | null;
+}> = ({ onClose, onAdd, saving = false, error }) => {
+    const [name, setName] = useState('');
+    const [specialty, setSpecialty] = useState('');
+    const [localError, setLocalError] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name.trim()) {
+            setLocalError('Agent name is required');
+            return;
+        }
+        setLocalError(null);
+        await onAdd({
+            name: name.trim(),
+            specialty: specialty.trim() || 'General Operations'
+        });
+    };
+
+    const isValid = name.trim();
+    const displayError = localError || error;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border-t-4 border-t-cyan-600">
+                <div className="p-5 bg-slate-950/50 border-b border-slate-800 flex justify-between items-center">
+                    <h3 className="font-bold text-white flex items-center gap-2 text-sm uppercase tracking-widest">
+                        <Plus size={16} className="text-cyan-400" /> Deploy New Agent
+                    </h3>
+                    <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit}>
+                    <div className="p-6 space-y-5">
+                        {/* Error Message */}
+                        {displayError && (
+                            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg flex items-center gap-2">
+                                <AlertCircle size={14} className="text-red-400 shrink-0" />
+                                <span className="text-xs text-red-300">{displayError}</span>
+                            </div>
+                        )}
+
+                        {/* Agent Name */}
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                                Agent Designation
+                            </label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => { setName(e.target.value); setLocalError(null); }}
+                                placeholder="e.g., Diagnostic Worker Alpha"
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                                autoFocus
+                                disabled={saving}
+                            />
+                        </div>
+
+                        {/* Specialty */}
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                                Operational Expertise
+                            </label>
+                            <input
+                                type="text"
+                                value={specialty}
+                                onChange={(e) => setSpecialty(e.target.value)}
+                                placeholder="e.g., Network Analysis, Security Audit"
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                                disabled={saving}
+                            />
+                            <p className="text-[10px] text-slate-600 mt-2">
+                                Optional. Defines the agent's area of specialization.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="p-5 bg-slate-950/80 border-t border-slate-800 flex justify-end gap-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={saving}
+                            className="px-5 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-bold transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!isValid || saving}
+                            className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-widest rounded-lg transition-colors shadow-lg shadow-cyan-900/20 flex items-center gap-2"
+                        >
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                            {saving ? 'Deploying...' : 'Deploy Agent'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// AgentAuditModal - using AgentWithApiFields now
+const AgentAuditModal: React.FC<{ agent: AgentWithApiFields, onClose: () => void }> = ({ agent, onClose }) => {
     const [selectedRecord, setSelectedRecord] = useState<AgentExecutionRecord | null>(null);
     const history = useMemo(() => generateMockHistory(agent.id), [agent.id]);
+    const teamCount = agent.teamIds?.length || 0;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 lg:p-8 animate-in fade-in duration-200">
@@ -348,7 +738,7 @@ const AgentAuditModal: React.FC<{ agent: FlatAgent, onClose: () => void }> = ({ 
                             <div className="text-[10px] text-slate-500 flex items-center gap-3 mt-1 font-bold uppercase tracking-[0.2em]">
                                 <span>SEGMENT ID: {agent.id}</span>
                                 <span className="w-1 h-1 rounded-full bg-slate-700"></span>
-                                <span>SECTOR: {agent.teamName}</span>
+                                <span>TEAMS: {teamCount > 0 ? teamCount : 'Unassigned'}</span>
                             </div>
                         </div>
                     </div>

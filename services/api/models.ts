@@ -5,11 +5,11 @@
  * Feature: 008-model-api-integration
  */
 
-import { apiPost } from './client';
+import { apiPost, apiPostRaw } from './client';
 import type {
   ModelDTO,
   ModelListRequest,
-  ModelListResponse,
+  ListModelsResponse,
   ModelCreateRequest,
   ModelGetRequest,
   ModelUpdateRequest,
@@ -28,8 +28,8 @@ const MODELS_API = {
 /**
  * List models with pagination and optional filter
  */
-export async function listModels(request: ModelListRequest): Promise<ModelListResponse> {
-  return apiPost<ModelListRequest, ModelListResponse>(MODELS_API.LIST, request);
+export async function listModels(request: ModelListRequest): Promise<ListModelsResponse> {
+  return apiPostRaw<ModelListRequest, ListModelsResponse>(MODELS_API.LIST, request);
 }
 
 /**

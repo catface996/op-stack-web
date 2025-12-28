@@ -52,6 +52,7 @@ import Dashboard from './components/Dashboard';
 import ResourceDetailView from './components/ResourceDetailView';
 import ApiResourceDetailView from './components/ApiResourceDetailView';
 import AgentManagement from './components/AgentManagement';
+import AgentConfigPage from './components/AgentConfigPage';
 import ReportManagement from './components/ReportManagement';
 import ReportDetailView from './components/ReportDetailView';
 import ReportTemplateManagement from './components/ReportTemplateManagement';
@@ -791,22 +792,6 @@ const App: React.FC = () => {
     ));
   }, []);
 
-  const handleDeleteAgent = useCallback((teamId: string, agentId: string) => {
-    setTeams(prev => prev.map(t =>
-      t.id === teamId ? { ...t, members: t.members.filter(m => m.id !== agentId) } : t
-    ));
-  }, []);
-
-  const handleUpdateAgentConfig = useCallback((teamId: string, agentId: string, config: any) => {
-    setTeams(prev => prev.map(t => {
-      if (t.id !== teamId) return t;
-      if (t.supervisor.id === agentId) {
-        return { ...t, supervisor: { ...t.supervisor, config } };
-      }
-      return { ...t, members: t.members.map(m => m.id === agentId ? { ...m, config } : m) };
-    }));
-  }, []);
-
   // Diagnosis view component
   const DiagnosisView = () => (
     <div className="flex-1 flex h-full overflow-hidden">
@@ -957,7 +942,8 @@ const App: React.FC = () => {
           } />
 
           {/* Agents */}
-          <Route path="agents" element={<AgentManagement teams={teams} onUpdateAgentConfig={handleUpdateAgentConfig} onDeleteAgent={handleDeleteAgent} onManagePrompts={() => navigate('/agents/prompts')} onManageModels={() => navigate('/agents/models')} onManageTools={() => navigate('/agents/tools')} />} />
+          <Route path="agents" element={<AgentManagement onManagePrompts={() => navigate('/agents/prompts')} onManageModels={() => navigate('/agents/models')} onManageTools={() => navigate('/agents/tools')} />} />
+          <Route path="agents/:id/config" element={<AgentConfigPage />} />
           <Route path="agents/prompts" element={<PromptManagement onBack={() => navigate(-1)} />} />
           <Route path="prompts/:id" element={<PromptDetailWrapper />} />
           <Route path="prompts/usages" element={<UsageManagement onBack={() => navigate(-1)} />} />
