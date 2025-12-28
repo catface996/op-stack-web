@@ -8,20 +8,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
-  FileText,
   Check,
   Loader2,
   AlertCircle,
-  X,
   Eye,
   Inbox,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  X,
 } from 'lucide-react';
 import type { AgentWithApiFields } from '../../services/hooks/useAgents';
 import { usePromptTemplates } from '../../services/hooks/usePromptTemplates';
 import { usePromptTemplate } from '../../services/hooks/usePromptTemplate';
 import type { UpdateAgentRequest, PromptTemplateDTO } from '../../services/api/types';
+import { getUsageIcon, getUsageStyle } from '../prompt/promptIcons';
 
 interface PromptTemplateStageProps {
   agent: AgentWithApiFields;
@@ -263,32 +264,33 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
   isPreviewing,
   onClick,
 }) => {
+  const UsageIcon = getUsageIcon(template.usageName);
+  const style = getUsageStyle(template.usageName);
+  
   return (
     <button
       onClick={onClick}
       className={`w-full text-left p-3 rounded-lg border transition-all flex flex-col h-full ${
         isSelected
-          ? 'bg-cyan-950/30 border-cyan-500/50 shadow-lg shadow-cyan-900/10'
+          ? 'bg-green-950/30 border-green-500/50 shadow-lg shadow-green-900/10'
           : isPreviewing
-            ? 'bg-slate-800/50 border-slate-600'
+            ? 'bg-slate-800/50 border-cyan-500/50'
             : 'bg-slate-950 border-slate-800 hover:border-slate-700 hover:bg-slate-900/50'
       }`}
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
-        <div className={`p-1.5 rounded-lg shrink-0 ${
-          isSelected ? 'bg-cyan-500/20 text-cyan-400' : 'bg-slate-800 text-slate-500'
-        }`}>
-          <FileText size={14} />
+        <div className={`p-1.5 rounded-lg shrink-0 ${style.bg} ${style.text}`}>
+          <UsageIcon size={14} />
         </div>
         <h3 className={`text-[11px] font-bold leading-tight line-clamp-1 flex-1 min-w-0 ${
-          isSelected ? 'text-cyan-300' : 'text-slate-200'
+          isSelected ? 'text-green-300' : 'text-slate-200'
         }`}>
           {template.name}
         </h3>
         <div className="flex items-center gap-1 shrink-0">
           {isSelected && (
-            <Check size={14} className="text-cyan-400" />
+            <Check size={14} className="text-green-400" />
           )}
           <Eye size={12} className="text-slate-600" />
         </div>
@@ -305,7 +307,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
       <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-800/50">
         <span className="text-[9px] text-slate-600">v{template.currentVersion}</span>
         {template.usageName && (
-          <span className="px-1.5 py-0.5 bg-slate-800 text-slate-500 text-[9px] rounded truncate max-w-[80px]">
+          <span className={`px-1.5 py-0.5 ${style.bg} ${style.text} text-[9px] rounded truncate max-w-[80px]`}>
             {template.usageName}
           </span>
         )}
