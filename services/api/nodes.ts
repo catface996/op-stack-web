@@ -67,6 +67,13 @@ export interface ListUnboundAgentsRequest {
   size?: number;
 }
 
+export interface ListUnboundSupervisorsRequest {
+  nodeId: number;
+  keyword?: string;
+  page?: number;
+  size?: number;
+}
+
 // ============================================================================
 // Node API
 // ============================================================================

@@ -33,6 +33,8 @@ export {
 export { useNodeMutations, type NodeFormData, type UseNodeMutationsResult } from './useNodeMutations';
 export { useNodeTypes, type UseNodeTypesResult } from './useNodeTypes';
 export { useNodeTopologies, type NodeTopologiesPagination, type UseNodeTopologiesResult } from './useNodeTopologies';
+export { useNodeSupervisors, type NodeSupervisorInfo, type UseNodeSupervisorsResult } from './useNodeSupervisors';
+export { useNodeAgents } from './useNodeAgents';
 
 // Prompt Template Management (Feature: 007-prompt-template-api)
 export {

@@ -29,10 +29,12 @@ import {
 } from 'lucide-react';
 import { resourceApi, getResourceTypeIcon, getStatusConfig, STATUS_CONFIG } from '../services/api/resources';
 import { nodeApi } from '../services/api/nodes';
+import { listAgents } from '../services/api/agents';
 import { useResourceAuditLogs } from '../services/hooks/useResourceAuditLogs';
 import { useResourceTypes } from '../services/hooks/useResourceTypes';
 import { useNodeTopologies } from '../services/hooks/useNodeTopologies';
 import { useNodeAgents } from '../services/hooks/useNodeAgents';
+import { useNodeSupervisors } from '../services/hooks/useNodeSupervisors';
 import { ApiError } from '../services/api/client';
 import type { ResourceDTO, ResourceStatus, NodeDTO, AgentDTO } from '../services/api/types';
 import StyledSelect from './ui/StyledSelect';
@@ -83,8 +85,17 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
   // Agent binding modal state
   const [isBindAgentModalOpen, setIsBindAgentModalOpen] = useState(false);
 
+  // Supervisor binding modal state
+  const [isBindSupervisorModalOpen, setIsBindSupervisorModalOpen] = useState(false);
+  const [supervisorBinding, setSupervisorBinding] = useState(false);
+
   // Agent unbind confirmation
   const [agentToUnbind, setAgentToUnbind] = useState<AgentDTO | null>(null);
+  const [agentUnbindConfirmInput, setAgentUnbindConfirmInput] = useState('');
+
+  // Supervisor unbind confirmation
+  const [supervisorToUnbind, setSupervisorToUnbind] = useState<{ id: number; name: string; topologyName: string } | null>(null);
+  const [supervisorUnbindConfirmInput, setSupervisorUnbindConfirmInput] = useState('');
 
   // Agent pagination
   const [agentPage, setAgentPage] = useState(1);
@@ -111,6 +122,14 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
     unbindAgent,
     binding: agentBinding,
   } = useNodeAgents(resourceId);
+
+  // Node supervisors hook
+  const {
+    supervisors: nodeSupervisors,
+    loading: supervisorsLoading,
+    error: supervisorsError,
+    refresh: refreshSupervisors,
+  } = useNodeSupervisors(resourceId);
 
   const fetchResource = async () => {
     setLoading(true);
@@ -617,14 +636,23 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
 
   const renderAgentsTab = () => {
     const handleUnbind = async () => {
-      if (agentToUnbind) {
+      if (agentToUnbind && agentUnbindConfirmInput === agentToUnbind.name) {
         await unbindAgent(agentToUnbind.id);
         setAgentToUnbind(null);
+        setAgentUnbindConfirmInput('');
       }
+    };
+
+    const handleRefreshAll = () => {
+      refreshAgents();
+      refreshSupervisors();
     };
 
     const totalAgentPages = Math.ceil(boundAgents.length / AGENTS_PER_PAGE);
     const paginatedAgents = boundAgents.slice((agentPage - 1) * AGENTS_PER_PAGE, agentPage * AGENTS_PER_PAGE);
+
+    const isLoading = agentsLoading || supervisorsLoading;
+    const hasNoData = boundAgents.length === 0 && nodeSupervisors.length === 0;
 
     return (
       <div className="flex flex-col h-full">
@@ -632,12 +660,19 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
           <h3 className="text-sm font-bold text-white">Associated Agents</h3>
           <div className="flex items-center gap-2">
             <button
-              onClick={refreshAgents}
-              disabled={agentsLoading}
+              onClick={handleRefreshAll}
+              disabled={isLoading}
               className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition-all"
             >
-              <RefreshCw size={14} className={agentsLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               Refresh
+            </button>
+            <button
+              onClick={() => setIsBindSupervisorModalOpen(true)}
+              disabled={supervisorBinding}
+              className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-lg text-xs font-bold text-white transition-all"
+            >
+              <Shield size={14} /> Assign Supervisor
             </button>
             <button
               onClick={() => setIsBindAgentModalOpen(true)}
@@ -650,9 +685,9 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
         </div>
 
         {/* Content area - flex-1 to take remaining space */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto space-y-6">
           {/* Loading state */}
-          {agentsLoading && boundAgents.length === 0 && (
+          {isLoading && boundAgents.length === 0 && nodeSupervisors.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-slate-500">
               <Loader2 size={32} className="animate-spin text-cyan-500 mb-4" />
               <p className="text-sm font-medium">Loading agents...</p>
@@ -660,12 +695,12 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
           )}
 
           {/* Error state */}
-          {agentsError && (
+          {(agentsError || supervisorsError) && (
             <div className="flex flex-col items-center justify-center py-16 text-slate-500">
               <AlertTriangle size={32} className="text-red-500 opacity-50 mb-4" />
-              <p className="text-sm font-medium text-red-400">{agentsError}</p>
+              <p className="text-sm font-medium text-red-400">{agentsError || supervisorsError}</p>
               <button
-                onClick={refreshAgents}
+                onClick={handleRefreshAll}
                 className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition-all"
               >
                 Retry
@@ -673,8 +708,8 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
             </div>
           )}
 
-          {/* Empty state */}
-          {!agentsLoading && !agentsError && boundAgents.length === 0 && (
+          {/* Empty state - only show when no data at all */}
+          {!isLoading && !agentsError && !supervisorsError && hasNoData && (
             <div className="flex flex-col items-center justify-center py-16 text-slate-500">
               <Bot size={48} className="opacity-20 mb-4" />
               <p className="text-sm font-medium">No agents assigned</p>
@@ -682,80 +717,152 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
             </div>
           )}
 
-          {/* Agents content */}
-          {!agentsError && boundAgents.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-4">
-              {paginatedAgents.map((agent) => {
-                const isSupervisor = agent.role === 'GLOBAL_SUPERVISOR' || agent.role === 'TEAM_SUPERVISOR';
-                const roleLabel = agent.role === 'GLOBAL_SUPERVISOR' ? 'Global Orchestrator' :
-                                 agent.role === 'TEAM_SUPERVISOR' ? 'Strategic Coordinator' :
-                                 agent.role === 'SCOUTER' ? 'Discovery Unit' : 'Tactical Unit';
-                return (
-                  <div
-                    key={agent.id}
-                    className="relative bg-slate-900 border border-slate-800/80 rounded-xl hover:border-cyan-500/40 hover:bg-slate-800/40 transition-all group flex flex-col min-h-[180px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-cyan-950/10"
-                  >
-                    <div className={`h-1 w-full ${isSupervisor ? 'bg-indigo-600' : 'bg-cyan-600'} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
-                    <div className="p-4 flex flex-col flex-1">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className={`p-2 rounded-lg ${isSupervisor ? 'bg-indigo-950/30 text-indigo-400 border border-indigo-500/20' : 'bg-slate-950 text-slate-400 border border-slate-800'}`}>
-                          {isSupervisor ? <Shield size={18} /> : <Zap size={18} />}
+          {/* Team Supervisors Section */}
+          {!supervisorsError && nodeSupervisors.length > 0 && (
+            <div className="pb-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield size={16} className="text-purple-400" />
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Team Supervisors</h4>
+                <span className="text-[10px] text-slate-600 font-mono">({nodeSupervisors.length})</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {nodeSupervisors.map((supervisorInfo) => {
+                  const { supervisor, topologyName } = supervisorInfo;
+                  return (
+                    <div
+                      key={`supervisor-${supervisor.id}-${supervisorInfo.topologyId}`}
+                      className="relative bg-slate-900 border border-purple-500/20 rounded-xl hover:border-purple-500/40 hover:bg-purple-950/20 transition-all group flex flex-col min-h-[180px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-purple-950/10"
+                    >
+                      <div className="h-1 w-full bg-purple-600 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="p-4 flex flex-col flex-1">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="p-2 rounded-lg bg-purple-950/30 text-purple-400 border border-purple-500/20">
+                            <Shield size={18} />
+                          </div>
+                          <button
+                            onClick={() => setSupervisorToUnbind({ id: supervisor.id, name: supervisor.name, topologyName })}
+                            disabled={supervisorBinding}
+                            className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                            title="Unbind supervisor"
+                          >
+                            <Unlink size={14} />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setAgentToUnbind(agent)}
-                          disabled={agentBinding}
-                          className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
-                          title="Unbind agent"
-                        >
-                          <Unlink size={14} />
-                        </button>
-                      </div>
-                      <div className="mb-3">
-                        <h4 className="text-sm font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors">{agent.name}</h4>
-                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em]">{roleLabel}</div>
-                      </div>
-                      {agent.specialty && (
+                        <div className="mb-3">
+                          <h4 className="text-sm font-bold text-white mb-0.5 truncate group-hover:text-purple-400 transition-colors">{supervisor.name}</h4>
+                          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em]">Strategic Coordinator</div>
+                        </div>
                         <div className="flex items-center gap-2 flex-1">
                           <div className="w-5 h-5 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
-                            <Activity size={10} className="text-slate-500" />
+                            <Network size={10} className="text-slate-500" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-[10px] text-slate-500 leading-none mb-0.5">Expertise</div>
-                            <div className="text-xs text-slate-300 font-medium truncate">{agent.specialty}</div>
+                            <div className="text-[10px] text-slate-500 leading-none mb-0.5">Topology</div>
+                            <div className="text-xs text-slate-300 font-medium truncate">{topologyName}</div>
                           </div>
                         </div>
-                      )}
+                        {supervisor.specialty && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="w-5 h-5 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
+                              <Activity size={10} className="text-slate-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[10px] text-slate-500 leading-none mb-0.5">Expertise</div>
+                              <div className="text-xs text-slate-300 font-medium truncate">{supervisor.specialty}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Workers Section */}
+          {!agentsError && boundAgents.length > 0 && (
+            <div className="pb-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Zap size={16} className="text-cyan-400" />
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Bound Workers</h4>
+                <span className="text-[10px] text-slate-600 font-mono">({boundAgents.length})</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {paginatedAgents.map((agent) => {
+                  const isSupervisor = agent.role === 'GLOBAL_SUPERVISOR' || agent.role === 'TEAM_SUPERVISOR';
+                  const roleLabel = agent.role === 'GLOBAL_SUPERVISOR' ? 'Global Orchestrator' :
+                                   agent.role === 'TEAM_SUPERVISOR' ? 'Strategic Coordinator' :
+                                   agent.role === 'SCOUTER' ? 'Discovery Unit' : 'Tactical Unit';
+                  return (
+                    <div
+                      key={agent.id}
+                      className="relative bg-slate-900 border border-slate-800/80 rounded-xl hover:border-cyan-500/40 hover:bg-slate-800/40 transition-all group flex flex-col min-h-[180px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-cyan-950/10"
+                    >
+                      <div className={`h-1 w-full ${isSupervisor ? 'bg-indigo-600' : 'bg-cyan-600'} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
+                      <div className="p-4 flex flex-col flex-1">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className={`p-2 rounded-lg ${isSupervisor ? 'bg-indigo-950/30 text-indigo-400 border border-indigo-500/20' : 'bg-slate-950 text-slate-400 border border-slate-800'}`}>
+                            {isSupervisor ? <Shield size={18} /> : <Zap size={18} />}
+                          </div>
+                          <button
+                            onClick={() => setAgentToUnbind(agent)}
+                            disabled={agentBinding}
+                            className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                            title="Unbind agent"
+                          >
+                            <Unlink size={14} />
+                          </button>
+                        </div>
+                        <div className="mb-3">
+                          <h4 className="text-sm font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors">{agent.name}</h4>
+                          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em]">{roleLabel}</div>
+                        </div>
+                        {agent.specialty && (
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="w-5 h-5 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
+                              <Activity size={10} className="text-slate-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[10px] text-slate-500 leading-none mb-0.5">Expertise</div>
+                              <div className="text-xs text-slate-300 font-medium truncate">{agent.specialty}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Pagination - fixed at bottom */}
-        <div className="flex justify-center items-center gap-6 pt-4 border-t border-slate-900/50 shrink-0">
-          <button
-            onClick={() => setAgentPage(p => Math.max(1, p - 1))}
-            disabled={agentPage === 1 || agentsLoading}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
-          >
-            <ChevronLeft size={14} /> Prev
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-500 tracking-widest">Agent segment</span>
-            <span className="text-xs text-white bg-slate-800 px-2 py-0.5 rounded font-mono font-bold">{agentPage}</span>
-            <span className="text-[10px] text-slate-500 font-bold">/</span>
-            <span className="text-xs text-slate-400 font-mono font-bold">{Math.max(1, totalAgentPages)}</span>
+        {/* Pagination - only show when there are bound agents */}
+        {boundAgents.length > 0 && (
+          <div className="flex justify-center items-center gap-6 pt-4 border-t border-slate-900/50 shrink-0">
+            <button
+              onClick={() => setAgentPage(p => Math.max(1, p - 1))}
+              disabled={agentPage === 1 || agentsLoading}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
+            >
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-500 tracking-widest">Worker segment</span>
+              <span className="text-xs text-white bg-slate-800 px-2 py-0.5 rounded font-mono font-bold">{agentPage}</span>
+              <span className="text-[10px] text-slate-500 font-bold">/</span>
+              <span className="text-xs text-slate-400 font-mono font-bold">{Math.max(1, totalAgentPages)}</span>
+            </div>
+            <button
+              onClick={() => setAgentPage(p => Math.min(totalAgentPages, p + 1))}
+              disabled={agentPage >= totalAgentPages || agentsLoading}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
+            >
+              Next <ChevronRight size={14} />
+            </button>
           </div>
-          <button
-            onClick={() => setAgentPage(p => Math.min(totalAgentPages, p + 1))}
-            disabled={agentPage >= totalAgentPages || agentsLoading}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
-          >
-            Next <ChevronRight size={14} />
-          </button>
-        </div>
+        )}
 
         {/* Bind Agent Modal */}
         {isBindAgentModalOpen && (
@@ -773,26 +880,118 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
           />
         )}
 
+        {/* Bind Supervisor Modal */}
+        {isBindSupervisorModalOpen && (
+          <BindSupervisorModal
+            nodeId={resourceId}
+            onBind={async (agentId) => {
+              setSupervisorBinding(true);
+              try {
+                await nodeApi.bindAgent({ nodeId: resourceId, agentId });
+                refreshSupervisors();
+                setIsBindSupervisorModalOpen(false);
+                return true;
+              } catch (err) {
+                console.error('Failed to bind supervisor:', err);
+                return false;
+              } finally {
+                setSupervisorBinding(false);
+              }
+            }}
+            onClose={() => setIsBindSupervisorModalOpen(false)}
+            binding={supervisorBinding}
+          />
+        )}
+
         {/* Unbind Confirmation Modal */}
         {agentToUnbind && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-sm">
-              <div className="flex items-center justify-between p-4 border-b border-slate-800">
-                <h3 className="font-bold text-red-400 text-sm">Unbind Agent</h3>
-                <button onClick={() => setAgentToUnbind(null)} className="text-slate-500 hover:text-white"><X size={20} /></button>
+            <div className="bg-slate-900 border border-red-500/30 rounded-xl shadow-2xl w-full max-w-sm">
+              <div className="flex items-center justify-between p-4 border-b border-red-500/20">
+                <h3 className="font-bold text-red-400 text-sm">Confirm Unbind</h3>
+                <button onClick={() => { setAgentToUnbind(null); setAgentUnbindConfirmInput(''); }} className="text-slate-500 hover:text-white"><X size={20} /></button>
               </div>
               <div className="p-4 space-y-4">
                 <p className="text-sm text-slate-400">
-                  Are you sure you want to unbind <span className="font-bold text-white">{agentToUnbind.name}</span> from this resource?
+                  This action cannot be undone. To confirm, please type the name:
                 </p>
+                <p className="text-sm font-bold text-white bg-slate-800 px-3 py-2 rounded">
+                  {agentToUnbind.name}
+                </p>
+                <input
+                  type="text"
+                  value={agentUnbindConfirmInput}
+                  onChange={(e) => setAgentUnbindConfirmInput(e.target.value)}
+                  placeholder="Type name to confirm"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm
+                             placeholder-slate-500 focus:outline-none focus:border-red-500/50"
+                />
                 <div className="flex justify-end gap-2 pt-2">
-                  <button onClick={() => setAgentToUnbind(null)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+                  <button onClick={() => { setAgentToUnbind(null); setAgentUnbindConfirmInput(''); }} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
                   <button
                     onClick={handleUnbind}
-                    disabled={agentBinding}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold text-white disabled:opacity-50 flex items-center gap-2"
+                    disabled={agentUnbindConfirmInput !== agentToUnbind.name || agentBinding}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {agentBinding && <Loader2 size={14} className="animate-spin" />}
+                    Unbind
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unbind Supervisor Confirmation Modal */}
+        {supervisorToUnbind && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 border border-red-500/30 rounded-xl shadow-2xl w-full max-w-sm">
+              <div className="flex items-center justify-between p-4 border-b border-red-500/20">
+                <div className="flex items-center gap-2">
+                  <Shield size={18} className="text-purple-400" />
+                  <h3 className="font-bold text-red-400 text-sm">Confirm Unbind</h3>
+                </div>
+                <button onClick={() => { setSupervisorToUnbind(null); setSupervisorUnbindConfirmInput(''); }} className="text-slate-500 hover:text-white"><X size={20} /></button>
+              </div>
+              <div className="p-4 space-y-4">
+                <p className="text-sm text-slate-400">
+                  This action cannot be undone. To confirm, please type the name:
+                </p>
+                <p className="text-sm font-bold text-white bg-slate-800 px-3 py-2 rounded">
+                  {supervisorToUnbind.name}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Topology: <span className="text-slate-300">{supervisorToUnbind.topologyName}</span>
+                </p>
+                <input
+                  type="text"
+                  value={supervisorUnbindConfirmInput}
+                  onChange={(e) => setSupervisorUnbindConfirmInput(e.target.value)}
+                  placeholder="Type name to confirm"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm
+                             placeholder-slate-500 focus:outline-none focus:border-red-500/50"
+                />
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => { setSupervisorToUnbind(null); setSupervisorUnbindConfirmInput(''); }} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+                  <button
+                    onClick={async () => {
+                      if (supervisorUnbindConfirmInput !== supervisorToUnbind.name) return;
+                      setSupervisorBinding(true);
+                      try {
+                        await nodeApi.unbindAgent({ nodeId: resourceId, agentId: supervisorToUnbind.id });
+                        refreshSupervisors();
+                        setSupervisorToUnbind(null);
+                        setSupervisorUnbindConfirmInput('');
+                      } catch (err) {
+                        console.error('Failed to unbind supervisor:', err);
+                      } finally {
+                        setSupervisorBinding(false);
+                      }
+                    }}
+                    disabled={supervisorUnbindConfirmInput !== supervisorToUnbind.name || supervisorBinding}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {supervisorBinding && <Loader2 size={14} className="animate-spin" />}
                     Unbind
                   </button>
                 </div>
@@ -1317,6 +1516,147 @@ const BindAgentModal: React.FC<BindAgentModalProps> = ({ nodeId, onBind, onClose
               onClick={handleBind}
               disabled={!selectedAgentId || binding}
               className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm font-bold text-white disabled:opacity-50 flex items-center gap-2"
+            >
+              {binding && <Loader2 size={14} className="animate-spin" />}
+              Assign
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Bind Supervisor Modal Component
+interface BindSupervisorModalProps {
+  nodeId: number;
+  onBind: (agentId: number) => Promise<boolean>;
+  onClose: () => void;
+  binding: boolean;
+}
+
+const BindSupervisorModal: React.FC<BindSupervisorModalProps> = ({ nodeId, onBind, onClose, binding }) => {
+  const [agents, setAgents] = useState<AgentDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 6;
+
+  useEffect(() => {
+    const fetchSupervisors = async () => {
+      setLoading(true);
+      try {
+        // Get all TEAM_SUPERVISOR agents
+        const result = await listAgents({ role: 'TEAM_SUPERVISOR', page, size: PAGE_SIZE });
+        const allSupervisors = result.data?.content || [];
+        setAgents(allSupervisors);
+        setTotalPages(result.data?.totalPages || 1);
+        setTotal(result.data?.totalElements || 0);
+      } catch (err) {
+        console.error('Failed to fetch supervisors:', err);
+        setAgents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSupervisors();
+  }, [nodeId, page]);
+
+  const handleBind = async () => {
+    if (selectedAgentId) {
+      await onBind(selectedAgentId);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-slate-900 border border-purple-500/30 rounded-xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-4 border-b border-purple-500/20">
+          <div className="flex items-center gap-2">
+            <Shield size={18} className="text-purple-400" />
+            <h3 className="font-bold text-white text-sm">Assign Team Supervisor</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={20} /></button>
+        </div>
+        <div className="p-4 space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="text-purple-400 animate-spin" />
+            </div>
+          ) : agents.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <Shield size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No available team supervisors</p>
+              <p className="text-xs text-slate-600 mt-1">Create a TEAM_SUPERVISOR agent first</p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {agents.map(agent => {
+                  const isSelected = selectedAgentId === agent.id;
+                  return (
+                    <button
+                      key={agent.id}
+                      onClick={() => setSelectedAgentId(agent.id)}
+                      className={`w-full p-3 rounded-lg border text-left transition-all ${
+                        isSelected
+                          ? 'bg-purple-950/30 border-purple-500/50'
+                          : 'bg-slate-950 border-slate-800 hover:border-purple-500/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-purple-950/50 text-purple-400">
+                          <Shield size={14} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{agent.name}</p>
+                          <p className="text-[10px] text-purple-400 uppercase">Team Supervisor</p>
+                        </div>
+                        {isSelected && <Check size={16} className="text-purple-400" />}
+                      </div>
+                      {agent.specialty && (
+                        <p className="text-xs text-slate-500 mt-2 pl-8 truncate">{agent.specialty}</p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Pagination */}
+          {!loading && agents.length > 0 && (
+            <div className="flex justify-center items-center gap-4 py-3 border-t border-slate-800">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1 || loading}
+                className="flex items-center gap-1 px-2 py-1 rounded text-slate-400 hover:text-white disabled:opacity-30 text-xs"
+              >
+                <ChevronLeft size={14} /> Prev
+              </button>
+              <span className="text-xs text-slate-400">
+                Page <span className="text-white font-mono font-bold">{page}</span> of{' '}
+                <span className="font-mono font-bold">{totalPages}</span>
+                <span className="text-slate-600 ml-1">({total})</span>
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || loading}
+                className="flex items-center gap-1 px-2 py-1 rounded text-slate-400 hover:text-white disabled:opacity-30 text-xs"
+              >
+                Next <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+            <button
+              onClick={handleBind}
+              disabled={!selectedAgentId || binding}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm font-bold text-white disabled:opacity-50 flex items-center gap-2"
             >
               {binding && <Loader2 size={14} className="animate-spin" />}
               Assign

@@ -2,21 +2,22 @@
   ============================================================================
   SYNC IMPACT REPORT
   ============================================================================
-  Version Change: 1.0.0 → 1.1.0 (Added Pagination Controls UI Pattern)
+  Version Change: 1.1.0 → 1.2.0 (Added Destructive Action Confirmation Pattern)
 
   Modified Principles: N/A
 
   Added Sections:
-  - IV. Pagination Controls UI Pattern (under Frontend Development Standards)
+  - V. Destructive Action Confirmation Pattern (under Frontend Development Standards)
 
   Removed Sections: N/A
 
   Templates Requiring Updates:
-  - .specify/templates/plan-template.md: No update needed
-  - .specify/templates/spec-template.md: No update needed
-  - .specify/templates/tasks-template.md: No update needed
+  - .specify/templates/plan-template.md: ✅ No update needed (generic template)
+  - .specify/templates/spec-template.md: ✅ No update needed (generic template)
+  - .specify/templates/tasks-template.md: ✅ No update needed (generic template)
 
-  Follow-up TODOs: None
+  Follow-up TODOs:
+  - Existing delete/unbind modals in codebase should be updated to comply with this principle
   ============================================================================
 -->
 
@@ -156,6 +157,82 @@ All management pages with pagination MUST use the following standardized paginat
 
 **Rationale**: Consistent pagination controls across all management pages ensure predictable user experience and maintainable codebase. The centered layout with clear page indicators helps users navigate large datasets efficiently.
 
+### V. Destructive Action Confirmation Pattern
+
+All destructive actions (delete, unbind, remove, etc.) MUST implement a two-step confirmation dialog with name verification:
+
+**Rules**:
+1. A confirmation modal MUST be displayed before executing any destructive action
+2. The modal MUST display the name of the object being deleted/unbound
+3. The user MUST type the exact name of the object to enable the confirm button
+4. The confirm button MUST remain disabled until the typed name matches exactly
+5. The modal MUST clearly indicate this is a destructive/irreversible action
+
+**UI Pattern**:
+
+```tsx
+{/* Destructive Action Confirmation Modal */}
+{itemToDelete && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="bg-slate-900 border border-red-500/30 rounded-xl shadow-2xl w-full max-w-sm">
+      <div className="flex items-center justify-between p-4 border-b border-red-500/20">
+        <h3 className="font-bold text-red-400 text-sm">Confirm Delete</h3>
+        <button onClick={() => setItemToDelete(null)} className="text-slate-500 hover:text-white">
+          <X size={20} />
+        </button>
+      </div>
+      <div className="p-4 space-y-4">
+        <p className="text-sm text-slate-400">
+          This action cannot be undone. To confirm, please type the name:
+        </p>
+        <p className="text-sm font-bold text-white bg-slate-800 px-3 py-2 rounded">
+          {itemToDelete.name}
+        </p>
+        <input
+          type="text"
+          value={confirmationInput}
+          onChange={(e) => setConfirmationInput(e.target.value)}
+          placeholder="Type name to confirm"
+          className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm
+                     placeholder-slate-500 focus:outline-none focus:border-red-500/50"
+        />
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            onClick={() => { setItemToDelete(null); setConfirmationInput(''); }}
+            className="px-4 py-2 text-sm text-slate-400 hover:text-white"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={confirmationInput !== itemToDelete.name || isDeleting}
+            className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold text-white
+                       disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isDeleting && <Loader2 size={14} className="animate-spin" />}
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+```
+
+**Required State Variables**:
+```tsx
+const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string } | null>(null);
+const [confirmationInput, setConfirmationInput] = useState('');
+const [isDeleting, setIsDeleting] = useState(false);
+```
+
+**Button Disabled Condition**:
+```tsx
+disabled={confirmationInput !== itemToDelete.name || isDeleting}
+```
+
+**Rationale**: Requiring users to type the name of the object being deleted prevents accidental deletions and ensures users consciously acknowledge which item they are removing. This pattern is especially critical for irreversible operations and follows industry best practices (GitHub repository deletion, AWS resource deletion, etc.).
+
 ## Governance
 
 This constitution supersedes all other practices for the op-stack-web project.
@@ -173,4 +250,4 @@ This constitution supersedes all other practices for the op-stack-web project.
 - Constitution violations MUST be justified in Complexity Tracking section of plan.md
 - Runtime development guidance is maintained in CLAUDE.md
 
-**Version**: 1.1.0 | **Ratified**: 2025-12-27 | **Last Amended**: 2025-12-29
+**Version**: 1.2.0 | **Ratified**: 2025-12-27 | **Last Amended**: 2025-12-29
