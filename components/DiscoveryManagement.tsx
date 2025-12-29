@@ -273,36 +273,32 @@ const DiscoveryManagement: React.FC<DiscoveryManagementProps> = ({ sources, agen
               {paginatedSources.map(source => (
                 <div
                   key={source.id}
-                  className="relative bg-slate-900 border border-slate-800/80 rounded-xl transition-all cursor-pointer flex flex-col min-h-[200px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-cyan-950/10 hover:border-cyan-500/40 hover:bg-slate-800/40"
+                  className="relative bg-slate-900 border border-slate-800/80 rounded-xl transition-all cursor-pointer flex flex-col min-h-[200px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-cyan-950/10 hover:border-cyan-500/40 hover:bg-slate-800/40 group"
                 >
-                  <div className={`h-1 w-full ${source.status === 'Connected' ? 'bg-green-500' : 'bg-red-500'} opacity-30`}></div>
+                  <div className={`h-1 w-full ${source.status === 'Connected' ? 'bg-green-500' : 'bg-red-500'} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
                   <div className="p-5 flex flex-col flex-1">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="p-2 bg-slate-950 border border-slate-800 rounded-lg">
+                    {/* Card Header - Icon and Name on same line */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-slate-950 border border-slate-800 rounded-lg shrink-0">
                         {getIcon(source.type)}
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${source.status === 'Connected' ? 'text-green-400 border-green-900 bg-green-950/20' : 'text-red-400 border-red-900 bg-red-950/20'}`}>
-                          {source.status}
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight max-w-[200px]" title={source.name}>{source.name}</h3>
+                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80 truncate max-w-[200px]">{source.type} Connector</div>
                       </div>
                     </div>
 
-                    <div className="mb-4 min-w-0 overflow-hidden">
-                      <h3 className="text-base font-bold text-white mb-0.5 truncate leading-tight hover:text-cyan-400 transition-colors" title={source.name}>{source.name}</h3>
-                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80 truncate">{source.type} Connector</div>
-                    </div>
-
-                    <div className="flex-1">
+                    <div className="flex-1 space-y-2">
                       <div className="text-[10px] text-slate-500 font-mono truncate">{source.endpoint}</div>
                       {source.lastScan && (
-                        <div className="flex items-center gap-1 mt-2 text-[9px] text-slate-600">
+                        <div className="flex items-center gap-1 text-[9px] text-slate-600">
                           <Clock size={10} />
                           Last scan: {formatLastScan(source.lastScan)}
                         </div>
                       )}
                     </div>
 
+                    {/* Card Footer - Actions and Status */}
                     <div className="mt-5 pt-4 border-t border-slate-800/40 flex items-center justify-between shrink-0">
                       <div className="flex items-center gap-1">
                         <button onClick={() => onScan(source.id)} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-cyan-400 transition-all" title="Refresh">
@@ -315,12 +311,9 @@ const DiscoveryManagement: React.FC<DiscoveryManagementProps> = ({ sources, agen
                           <Trash2 size={15} />
                         </button>
                       </div>
-                      <button
-                        onClick={() => onScan(source.id)}
-                        className="px-2.5 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1.5 bg-cyan-600/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-600/20"
-                      >
-                        <Zap size={12} /> Scan now
-                      </button>
+                      <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${source.status === 'Connected' ? 'text-green-400 bg-green-950/30' : 'text-red-400 bg-red-950/30'}`}>
+                        {source.status}
+                      </div>
                     </div>
                   </div>
                 </div>

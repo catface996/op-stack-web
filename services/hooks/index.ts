@@ -64,3 +64,6 @@ export { useAgent } from './useAgent';
 
 // Topology Report Template Binding (Feature: 014-topology-report-template)
 export { useTopologyReportTemplates } from './useTopologyReportTemplates';
+
+// Hierarchical Team (Feature: Diagnosis Page Integration)
+export { useHierarchicalTeam, type UseHierarchicalTeamResult } from './useHierarchicalTeam';

@@ -10,6 +10,7 @@ import { listAgents, createAgent, updateAgent, deleteAgent } from '../api/agents
 import type {
   AgentDTO,
   AgentRoleDTO,
+  AgentHierarchyLevel,
   ListAgentsRequest,
   CreateAgentRequest,
   UpdateAgentRequest,
@@ -56,6 +57,8 @@ export function toApiRole(role: AgentRole): AgentRoleDTO {
  * Agent with all API fields (flat structure matching new API)
  */
 export interface AgentWithApiFields extends Agent {
+  /** Agent hierarchy level */
+  hierarchyLevel?: AgentHierarchyLevel;
   /** Prompt template ID */
   promptTemplateId?: number;
   /** Prompt template name (read-only) */
@@ -88,6 +91,7 @@ export function toFrontendAgent(dto: AgentDTO): AgentWithApiFields {
     id: String(dto.id),
     name: dto.name,
     role: fromApiRole(dto.role),
+    hierarchyLevel: dto.hierarchyLevel,
     specialty: dto.specialty,
     status: AgentStatus.IDLE, // Default status (not in new API response)
     findings: {

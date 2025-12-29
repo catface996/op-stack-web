@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   INITIAL_TOPOLOGY,
   generateTeamForNode,
@@ -44,6 +44,7 @@ import {
 import TopologyGraph from './components/TopologyGraph';
 import AgentHierarchy from './components/AgentHierarchy';
 import LogStream from './components/LogStream';
+import DiagnosisView from './components/DiagnosisView';
 import ResourceManagement from './components/ResourceManagement';
 import TopologiesManagement from './components/TopologiesManagement';
 import SubGraphCanvas from './components/SubGraphCanvas';
@@ -102,7 +103,7 @@ const TopologyDetailWrapper: React.FC<{
         topologyId={topologyIdNum}
         onBack={() => navigate(-1)}
         onViewResource={onViewResource}
-        onNavigateToDiagnosis={() => navigate('/diagnosis')}
+        onNavigateToDiagnosis={() => navigate(`/diagnosis?topologyId=${topologyIdNum}`)}
       />
     );
   }
@@ -793,69 +794,6 @@ const App: React.FC = () => {
     ));
   }, []);
 
-  // Diagnosis view component
-  const DiagnosisView = () => (
-    <div className="flex-1 flex h-full overflow-hidden">
-        <aside style={{ width: leftSidebarWidth }} className="bg-slate-900/20 p-2 overflow-y-auto custom-scrollbar text-xs shrink-0">
-            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 py-2 flex justify-between items-center">
-                <span>Hierarchy Stack</span>
-                {diagnosisScope && <button onClick={() => setDiagnosisScope(null)} className="text-cyan-400 hover:text-white transition-colors">Global View</button>}
-            </div>
-            <AgentHierarchy globalAgent={globalAgent} teams={activeTeams} activeTeamIds={new Set()} onAgentClick={(agentId) => setFocusTarget({ agentId, ts: Date.now() })} />
-        </aside>
-        {/* 左侧拖拽分隔条 */}
-        <div
-          className="w-1 bg-slate-800 hover:bg-cyan-500 cursor-col-resize transition-colors shrink-0"
-          onMouseDown={() => setIsResizingLeft(true)}
-        />
-        <section className="flex-1 flex flex-col bg-slate-950 min-w-0">
-            <div className="h-10 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 bg-slate-900/40">
-                <div className="flex items-center gap-2">
-                  <Activity size={12} className="text-cyan-400" />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time collaboration stream</span>
-                </div>
-                {diagnosisScope && <div className="text-[9px] px-2 py-0.5 rounded bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 font-bold uppercase">Focus: {diagnosisScope.name}</div>}
-            </div>
-            <div className="flex-1 overflow-hidden"><LogStream logs={logs} focusTarget={focusTarget} /></div>
-            <div className="p-4 bg-slate-900/50 border-t border-slate-800 flex items-center gap-3">
-                <div className="flex-1 flex items-center gap-3 bg-slate-950 border border-slate-700 rounded-xl px-4">
-                    <Sparkles size={16} className="text-cyan-500" />
-                    <input className="flex-1 h-12 bg-transparent text-sm text-slate-200 focus:outline-none" value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="Submit directive for hierarchical execution..." />
-                </div>
-
-                <div className="flex gap-2">
-                    {logs.length > 0 && !isSimulating && diagnosisScope && (
-                       <button
-                          onClick={() => setIsGeneratingReport(true)}
-                          className="h-12 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95"
-                       >
-                          <FileSearch size={14} /> GENERATE REPORT
-                       </button>
-                    )}
-                    {isSimulating ? (
-                      <button onClick={handleAbortDiagnosis} className="h-12 px-8 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95 animate-pulse">
-                        <Square size={14} fill="currentColor" /> ABORT
-                      </button>
-                    ) : (
-                      <button onClick={handleExecuteDiagnosis} className="h-12 px-8 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95">
-                        <Play size={14} fill="currentColor" /> EXECUTE
-                      </button>
-                    )}
-                </div>
-            </div>
-        </section>
-        {/* 右侧拖拽分隔条 */}
-        <div
-          className="w-1 bg-slate-800 hover:bg-cyan-500 cursor-col-resize transition-colors shrink-0"
-          onMouseDown={() => setIsResizingRight(true)}
-        />
-        <aside style={{ width: rightSidebarWidth }} className="bg-slate-900/20 relative shrink-0">
-            <div className="absolute top-0 left-0 w-full h-10 border-b border-slate-800 bg-slate-900/40 z-10 flex items-center px-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">Topology Monitor</div>
-            <TopologyGraph data={dashboardTopology} activeNodeIds={activeNodeIds} onNodeClick={() => {}} onCreateLink={handleCreateLink} showLegend={false} />
-        </aside>
-    </div>
-  );
-
   // Discovery view component
   const DiscoveryView = () => (
     <div className="flex flex-col h-full bg-slate-950">
@@ -961,7 +899,30 @@ const App: React.FC = () => {
           <Route path="scanner" element={<ScannerViewWrapper />} />
 
           {/* Diagnosis */}
-          <Route path="diagnosis" element={<DiagnosisView />} />
+          <Route path="diagnosis" element={
+            <DiagnosisView
+              leftSidebarWidth={leftSidebarWidth}
+              rightSidebarWidth={rightSidebarWidth}
+              setIsResizingLeft={setIsResizingLeft}
+              setIsResizingRight={setIsResizingRight}
+              globalAgent={globalAgent}
+              activeTeams={activeTeams}
+              dashboardTopology={dashboardTopology}
+              activeNodeIds={activeNodeIds}
+              diagnosisScope={diagnosisScope}
+              setDiagnosisScope={setDiagnosisScope}
+              logs={logs}
+              focusTarget={focusTarget}
+              setFocusTarget={setFocusTarget}
+              userQuery={userQuery}
+              setUserQuery={setUserQuery}
+              isSimulating={isSimulating}
+              handleAbortDiagnosis={handleAbortDiagnosis}
+              handleExecuteDiagnosis={handleExecuteDiagnosis}
+              handleCreateLink={handleCreateLink}
+              setIsGeneratingReport={setIsGeneratingReport}
+            />
+          } />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

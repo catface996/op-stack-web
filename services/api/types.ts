@@ -1477,6 +1477,11 @@ export type QueryUnboundReportTemplatesResponse = ApiResponse<PageResult<ReportT
 export type AgentRoleDTO = 'GLOBAL_SUPERVISOR' | 'TEAM_SUPERVISOR' | 'WORKER' | 'SCOUTER';
 
 /**
+ * Agent hierarchy level enum
+ */
+export type AgentHierarchyLevel = 'GLOBAL_SUPERVISOR' | 'TEAM_SUPERVISOR' | 'TEAM_WORKER' | 'INDEPENDENT';
+
+/**
  * Agent status enum
  */
 export type AgentStatusDTO = 'IDLE' | 'THINKING' | 'WORKING' | 'COMPLETED' | 'WAITING' | 'ERROR';
@@ -1491,6 +1496,8 @@ export interface AgentDTO {
   name: string;
   /** Agent role in hierarchy */
   role: AgentRoleDTO;
+  /** Agent hierarchy level */
+  hierarchyLevel?: AgentHierarchyLevel;
   /** Area of expertise */
   specialty?: string;
   /** Prompt template ID */
@@ -1653,3 +1660,88 @@ export type DeleteAgentResponse = ApiResponse<void>;
 
 /** List agent templates response */
 export type AgentTemplateListResponse = ApiResponse<AgentTemplateDTO[]>;
+
+// ============================================================================
+// Hierarchical Team Types (Feature: Diagnosis Page Integration)
+// ============================================================================
+
+/**
+ * Team member Agent DTO (simplified for hierarchical team response)
+ * Used within HierarchicalTeamDTO - matches backend AgentDTO structure
+ */
+export interface HierarchicalAgentDTO {
+  /** Agent ID */
+  id: number;
+  /** Agent name */
+  name: string;
+  /** Agent role (GLOBAL_SUPERVISOR, TEAM_SUPERVISOR, WORKER, SCOUTER) */
+  role: AgentRoleDTO;
+  /** Agent hierarchy level (GLOBAL_SUPERVISOR, TEAM_SUPERVISOR, TEAM_WORKER, INDEPENDENT) */
+  hierarchyLevel?: AgentHierarchyLevel;
+  /** Specialty description */
+  specialty?: string;
+  /** Prompt template ID */
+  promptTemplateId?: number;
+  /** Prompt template name */
+  promptTemplateName?: string;
+  /** AI model identifier */
+  model?: string;
+  /** Temperature parameter (0.0-2.0) */
+  temperature?: number;
+  /** Top P parameter (0.0-1.0) */
+  topP?: number;
+  /** Max output tokens */
+  maxTokens?: number;
+  /** Max runtime in seconds */
+  maxRuntime?: number;
+  /** Warning count */
+  warnings?: number;
+  /** Critical issue count */
+  critical?: number;
+  /** Creation timestamp */
+  createdAt?: string;
+  /** Update timestamp */
+  updatedAt?: string;
+}
+
+/**
+ * Team DTO - represents a node's agent team
+ * Each resource node can have a supervisor and workers
+ */
+export interface HierarchicalTeamNodeDTO {
+  /** Resource node ID */
+  nodeId: number;
+  /** Resource node name */
+  nodeName: string;
+  /** Team supervisor agent (may be null) */
+  supervisor: HierarchicalAgentDTO | null;
+  /** Team worker agents (may be empty) */
+  workers: HierarchicalAgentDTO[];
+}
+
+/**
+ * Hierarchical Team DTO - full team structure for a topology
+ * POST /api/service/v1/topologies/hierarchical-team/query
+ */
+export interface HierarchicalTeamDTO {
+  /** Topology ID */
+  topologyId: number;
+  /** Topology name */
+  topologyName: string;
+  /** Global supervisor agent (may be null if not assigned) */
+  globalSupervisor: HierarchicalAgentDTO | null;
+  /** Teams list (one team per resource node) */
+  teams: HierarchicalTeamNodeDTO[];
+}
+
+/**
+ * Query hierarchical team request
+ * POST /api/service/v1/topologies/hierarchical-team/query
+ */
+export interface HierarchicalTeamQueryRequest {
+  /** Topology ID (required) */
+  topologyId: number;
+}
+
+/** Query hierarchical team response */
+export type HierarchicalTeamQueryResponse = ApiResponse<HierarchicalTeamDTO>;

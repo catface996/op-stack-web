@@ -28,6 +28,7 @@ export const paths = {
   resourceDetail: (id: string | number) => `/resources/${id}`,
   agentConfig: (id: string | number) => `/agents/${id}/config`,
   reportDetail: (id: string) => `/reports/${id}`,
+  diagnosis: (topologyId?: string | number) => topologyId ? `/diagnosis?topologyId=${topologyId}` : '/diagnosis',
 };
 
 // Navigation item configuration for sidebar

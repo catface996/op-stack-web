@@ -292,6 +292,17 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
+                                                <Activity size={12} className="text-slate-500" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] text-slate-500 leading-none mb-1">Hierarchy Level</div>
+                                                <div className="text-xs text-slate-300 truncate font-medium">
+                                                    {agent.hierarchyLevel ? agent.hierarchyLevel.replace(/_/g, ' ') : 'Not assigned'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
                                                 <Layers size={12} className="text-slate-500" />
                                             </div>
                                             <div className="min-w-0">
@@ -422,6 +433,22 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
                                     <span className="text-[9px] text-red-500/80 font-bold uppercase">Critical</span>
                                 </div>
                                 <div className="text-2xl font-black text-red-400">{viewingAgent.findings?.critical || 0}</div>
+                            </div>
+                        </div>
+
+                        {/* Hierarchy Level */}
+                        <div className="p-4 bg-slate-950/40 rounded-xl border border-slate-800">
+                            <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <Activity size={12} /> Hierarchy Level
+                            </div>
+                            <div className="text-sm text-slate-300">
+                                {viewingAgent.hierarchyLevel ? (
+                                    <span className="px-2 py-1 bg-slate-800 rounded text-xs font-mono">
+                                        {viewingAgent.hierarchyLevel.replace(/_/g, ' ')}
+                                    </span>
+                                ) : (
+                                    <span className="text-slate-500 italic">Not assigned</span>
+                                )}
                             </div>
                         </div>
 

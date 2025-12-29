@@ -38,6 +38,9 @@ import type {
   TopologyMembersRemoveRequest,
   // Topology Graph Query (Feature: 005-api-reintegration)
   TopologyGraphQueryRequest,
+  // Hierarchical Team Query (Feature: Diagnosis Page Integration)
+  HierarchicalTeamQueryRequest,
+  HierarchicalTeamDTO,
 } from './types';
 
 // ============================================================================
@@ -96,6 +99,7 @@ const TOPOLOGY_CRUD_ENDPOINTS = {
   GRAPH_QUERY: '/api/service/v1/topologies/graph/query',
   SUPERVISOR_BIND: '/api/service/v1/topologies/supervisor/bind',
   SUPERVISOR_UNBIND: '/api/service/v1/topologies/supervisor/unbind',
+  HIERARCHICAL_TEAM_QUERY: '/api/service/v1/topologies/hierarchical-team/query',
 } as const;
 
 // ============================================================================
@@ -293,6 +297,17 @@ export const topologyApi = {
     apiPost<{ topologyId: number; operatorId: number }, TopologyDTO>(
       TOPOLOGY_CRUD_ENDPOINTS.SUPERVISOR_UNBIND,
       { ...params, operatorId: params.operatorId ?? 1 }
+    ),
+
+  /**
+   * Query hierarchical team structure for a topology
+   * POST /api/v1/topologies/hierarchical-team/query
+   * Returns global supervisor and node teams with their agents
+   */
+  queryHierarchicalTeam: (params: HierarchicalTeamQueryRequest): Promise<HierarchicalTeamDTO> =>
+    apiPost<HierarchicalTeamQueryRequest, HierarchicalTeamDTO>(
+      TOPOLOGY_CRUD_ENDPOINTS.HIERARCHICAL_TEAM_QUERY,
+      params
     ),
 };
 
