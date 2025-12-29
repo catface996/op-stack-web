@@ -94,6 +94,8 @@ const TOPOLOGY_CRUD_ENDPOINTS = {
   UPDATE: '/api/service/v1/topologies/update',
   DELETE: '/api/service/v1/topologies/delete',
   GRAPH_QUERY: '/api/service/v1/topologies/graph/query',
+  SUPERVISOR_BIND: '/api/service/v1/topologies/supervisor/bind',
+  SUPERVISOR_UNBIND: '/api/service/v1/topologies/supervisor/unbind',
 } as const;
 
 // ============================================================================
@@ -271,6 +273,26 @@ export const topologyApi = {
     apiPost<DeleteTopologyApiRequest, void>(
       TOPOLOGY_CRUD_ENDPOINTS.DELETE,
       params
+    ),
+
+  /**
+   * Bind Global Supervisor Agent to topology
+   * POST /api/v1/topologies/supervisor/bind
+   */
+  bindSupervisor: (params: { topologyId: number; agentId: number; operatorId?: number }): Promise<TopologyDTO> =>
+    apiPost<{ topologyId: number; agentId: number; operatorId: number }, TopologyDTO>(
+      TOPOLOGY_CRUD_ENDPOINTS.SUPERVISOR_BIND,
+      { ...params, operatorId: params.operatorId ?? 1 }
+    ),
+
+  /**
+   * Unbind Global Supervisor Agent from topology
+   * POST /api/v1/topologies/supervisor/unbind
+   */
+  unbindSupervisor: (params: { topologyId: number; operatorId?: number }): Promise<TopologyDTO> =>
+    apiPost<{ topologyId: number; operatorId: number }, TopologyDTO>(
+      TOPOLOGY_CRUD_ENDPOINTS.SUPERVISOR_UNBIND,
+      { ...params, operatorId: params.operatorId ?? 1 }
     ),
 };
 

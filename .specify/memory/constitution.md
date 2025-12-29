@@ -2,22 +2,17 @@
   ============================================================================
   SYNC IMPACT REPORT
   ============================================================================
-  Version Change: N/A → 1.0.0 (Initial ratification)
+  Version Change: 1.0.0 → 1.1.0 (Added Pagination Controls UI Pattern)
 
-  Modified Principles: N/A (new constitution)
+  Modified Principles: N/A
 
   Added Sections:
-  - I. API Pagination Request Format
-  - II. API Pagination Response Format
-  - III. API Client Conventions
-  - API Contract Standards
-  - Frontend Development Standards
-  - Governance
+  - IV. Pagination Controls UI Pattern (under Frontend Development Standards)
 
   Removed Sections: N/A
 
   Templates Requiring Updates:
-  - .specify/templates/plan-template.md: No update needed (constitution check section exists)
+  - .specify/templates/plan-template.md: No update needed
   - .specify/templates/spec-template.md: No update needed
   - .specify/templates/tasks-template.md: No update needed
 
@@ -116,6 +111,51 @@ Frontend implementations MUST:
 4. Calculate pagination state from `totalElements`, `totalPages`, `first`, `last`
 5. Handle loading and error states for all async operations
 
+### IV. Pagination Controls UI Pattern
+
+All management pages with pagination MUST use the following standardized pagination controls:
+
+```tsx
+{/* Pagination */}
+{!loading && !error && totalPages > 0 && (
+  <div className="flex justify-center items-center gap-6 pt-4 border-t border-slate-900/50 shrink-0">
+    <button
+      onClick={() => setPage(page - 1)}
+      disabled={page === 1}
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
+    >
+      <ChevronLeft size={14} /> Prev
+    </button>
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-bold text-slate-500 tracking-widest">Page</span>
+      <span className="text-xs text-white bg-slate-800 px-2 py-0.5 rounded font-mono font-bold">{page}</span>
+      <span className="text-[10px] text-slate-500 font-bold">/</span>
+      <span className="text-xs text-slate-400 font-mono font-bold">{totalPages}</span>
+      <span className="text-[10px] text-slate-600 ml-2">({totalElements} total)</span>
+    </div>
+    <button
+      onClick={() => setPage(page + 1)}
+      disabled={page >= totalPages}
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
+    >
+      Next <ChevronRight size={14} />
+    </button>
+  </div>
+)}
+```
+
+**Rules**:
+- Layout: Centered horizontally using `flex justify-center items-center gap-6`
+- Position: Always placed outside the scrollable content area with `shrink-0`
+- Border: Top border using `pt-4 border-t border-slate-900/50`
+- Prev Button: Shows `<ChevronLeft size={14} /> Prev`, disabled when `page === 1`
+- Next Button: Shows `Next <ChevronRight size={14} />`, disabled when `page >= totalPages`
+- Page Info: Format is `Page {page} / {totalPages} ({totalElements} total)`
+- Button Style: `bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300`
+- For client-side filtering, append filter status: `({count} total, filtered)`
+
+**Rationale**: Consistent pagination controls across all management pages ensure predictable user experience and maintainable codebase. The centered layout with clear page indicators helps users navigate large datasets efficiently.
+
 ## Governance
 
 This constitution supersedes all other practices for the op-stack-web project.
@@ -133,4 +173,4 @@ This constitution supersedes all other practices for the op-stack-web project.
 - Constitution violations MUST be justified in Complexity Tracking section of plan.md
 - Runtime development guidance is maintained in CLAUDE.md
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-27 | **Last Amended**: 2025-12-27
+**Version**: 1.1.0 | **Ratified**: 2025-12-27 | **Last Amended**: 2025-12-29

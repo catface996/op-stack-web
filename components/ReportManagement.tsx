@@ -188,7 +188,7 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ onViewReport, onMan
           {/* Content */}
           {!loading && !error && reports.length > 0 ? (
              viewMode === 'card' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 auto-rows-fr">
                     {reports.map(report => {
                         const style = getTypeStyle(report.type);
                         return (
@@ -202,18 +202,19 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ onViewReport, onMan
                                
                                <div className="p-5 flex flex-col flex-1">
                                    <div className="flex justify-between items-start mb-4">
-                                       <div className={`p-2 rounded-lg ${style.bg} border ${style.border} ${style.color}`}>
-                                           <style.icon size={20} />
+                                       <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                                           <div className={`p-2 rounded-lg shrink-0 ${style.bg} border ${style.border} ${style.color}`}>
+                                               <style.icon size={20} />
+                                           </div>
+                                           <div className="min-w-0 overflow-hidden">
+                                               <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight" title={report.title}>{report.title}</h3>
+                                               <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">{report.type} ANALYSIS</div>
+                                           </div>
                                        </div>
-                                       <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${getStatusColor(report.status)}`}>
+                                       <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${getStatusColor(report.status)}`}>
                                            {report.status === 'Final' && <span className="w-1 h-1 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span>}
                                            {report.status}
                                        </div>
-                                   </div>
-
-                                   <div className="mb-4">
-                                       <h3 className="text-base font-bold text-white mb-1.5 line-clamp-1 group-hover:text-cyan-400 transition-colors leading-tight">{report.title}</h3>
-                                       <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">{report.type} ANALYSIS</div>
                                    </div>
 
                                    <p className="text-xs text-slate-400 line-clamp-3 mb-5 flex-1 leading-relaxed italic opacity-80">
@@ -269,8 +270,8 @@ const ReportManagement: React.FC<ReportManagementProps> = ({ onViewReport, onMan
                                             <div className={`p-2 rounded-lg border ${style.bg} ${style.border} ${style.color}`}>
                                                 <style.icon size={18} />
                                             </div>
-                                            <div>
-                                                <div className="font-bold text-white group-hover:text-cyan-400 transition-colors text-sm">{report.title}</div>
+                                            <div className="min-w-0 overflow-hidden">
+                                                <div className="font-bold text-white group-hover:text-cyan-400 transition-colors text-sm truncate max-w-xs" title={report.title}>{report.title}</div>
                                                 <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
                                                     <span className="font-mono">{report.id}</span>
                                                     <span className="w-1 h-1 rounded-full bg-slate-700"></span>

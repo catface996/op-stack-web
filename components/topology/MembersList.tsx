@@ -258,11 +258,11 @@ export const MembersList: React.FC<MembersListProps> = ({
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-slate-950 text-cyan-500 border border-slate-800">
+                      <div className="p-2 rounded-lg bg-slate-950 text-cyan-500 border border-slate-800 shrink-0">
                         <Icon size={16} />
                       </div>
-                      <div>
-                        <div className="text-sm font-bold text-white">{member.memberName}</div>
+                      <div className="min-w-0 overflow-hidden">
+                        <div className="text-sm font-bold text-white truncate max-w-xs" title={member.memberName}>{member.memberName}</div>
                         <div className="text-[9px] uppercase font-black text-slate-500 tracking-widest">ID: {member.memberId}</div>
                       </div>
                     </div>

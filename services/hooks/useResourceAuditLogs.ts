@@ -29,6 +29,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 /**
  * Hook for fetching resource audit logs
+ * Note: Auto-fetch disabled - call refresh() manually to load logs
  */
 export function useResourceAuditLogs(resourceId: number | undefined): UseResourceAuditLogsResult {
   const [logs, setLogs] = useState<ResourceAuditLogDTO[]>([]);
@@ -73,11 +74,12 @@ export function useResourceAuditLogs(resourceId: number | undefined): UseResourc
     }
   }, [resourceId]);
 
-  useEffect(() => {
-    if (resourceId) {
-      fetchLogs(1);
-    }
-  }, [resourceId, fetchLogs]);
+  // Auto-fetch disabled - logs will be loaded when user switches to history tab
+  // useEffect(() => {
+  //   if (resourceId) {
+  //     fetchLogs(1);
+  //   }
+  // }, [resourceId, fetchLogs]);
 
   const setPage = useCallback((page: number) => {
     setPagination(prev => ({ ...prev, page }));

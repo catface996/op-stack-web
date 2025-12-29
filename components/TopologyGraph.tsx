@@ -867,6 +867,19 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
     // 定义 defs
     const defs = svg.append("defs");
 
+    // 节点阴影滤镜
+    const dropShadow = defs.append("filter")
+      .attr("id", "node-shadow")
+      .attr("x", "-50%")
+      .attr("y", "-50%")
+      .attr("width", "200%")
+      .attr("height", "200%");
+    dropShadow.append("feDropShadow")
+      .attr("dx", 0)
+      .attr("dy", 4)
+      .attr("stdDeviation", 8)
+      .attr("flood-color", "rgba(0, 0, 0, 0.5)");
+
     // 流量粒子箭头
     defs.append("marker")
       .attr("id", "flow-arrow")
@@ -1510,6 +1523,17 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
 
     nodeSelectionRef.current = nodeGroup as any;
 
+    // 添加阴影底层矩形（立体感）
+    nodeGroup.append("rect")
+      .attr("width", rectWidth)
+      .attr("height", rectHeight)
+      .attr("x", -rectWidth / 2 + 2)
+      .attr("y", -rectHeight / 2 + 3)
+      .attr("rx", 8)
+      .attr("ry", 8)
+      .attr("fill", "rgba(0, 0, 0, 0.4)")
+      .attr("class", "node-shadow");
+
     nodeGroup.append("rect")
       .attr("width", rectWidth)
       .attr("height", rectHeight)
@@ -1519,20 +1543,33 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       .attr("ry", 8)
       .attr("fill", (d: any) => {
         if (d.data.isShadow) return "rgba(88, 28, 135, 0.2)";
-        if (d.data.isOrphan) return "rgba(30, 41, 59, 0.8)"; // 真正孤立节点（无任何链接）背景
+        if (d.data.isOrphan) return "rgba(30, 41, 59, 0.8)";
         return "#0f172a";
       })
       .attr("stroke", (d: any) => {
-        if (d.data.isOrphan) return "#64748b"; // 真正孤立节点边框色
+        if (d.data.isOrphan) return "#64748b";
         return getTypeColor(d.data.type, d.data.isShadow);
       })
       .attr("stroke-width", (d: any) => d.data.isShadow ? 1.5 : 2)
       .attr("stroke-dasharray", (d: any) => {
         if (d.data.isShadow) return "5,5";
-        if (d.data.isOrphan) return "4,2"; // 真正孤立节点虚线边框
+        if (d.data.isOrphan) return "4,2";
         return "none";
       })
+      .attr("filter", (d: any) => d.data.isShadow ? "none" : "url(#node-shadow)")
       .attr("class", "node-rect transition-all duration-300");
+
+    // 添加顶部高光（立体感）
+    nodeGroup.append("rect")
+      .attr("width", rectWidth - 8)
+      .attr("height", 1)
+      .attr("x", -rectWidth / 2 + 4)
+      .attr("y", -rectHeight / 2 + 2)
+      .attr("rx", 1)
+      .attr("fill", (d: any) => {
+        if (d.data.isShadow || d.data.isOrphan) return "transparent";
+        return "rgba(255, 255, 255, 0.1)";
+      });
 
     nodeGroup.append("text")
       .text((d: any) => d.data.label)

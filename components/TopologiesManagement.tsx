@@ -247,7 +247,7 @@ const TopologiesManagement: React.FC<TopologiesManagementProps> = ({
 
         {/* Card View */}
         {!loading && !error && topologies.length > 0 && viewMode === 'card' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 auto-rows-fr">
             {topologies.map((tg) => {
               const isActive = activeScopeId === String(tg.id);
               const isRunning = isActive && isSimulating;
@@ -260,10 +260,16 @@ const TopologiesManagement: React.FC<TopologiesManagementProps> = ({
                   <div className={`h-1 w-full ${isActive ? 'bg-indigo-600' : 'bg-slate-700'} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
                   <div className="p-5 flex flex-col flex-1">
                     <div className="flex justify-between items-start mb-4">
-                      <div className={`p-2 rounded-lg ${isActive ? 'bg-indigo-950/30 text-indigo-400 border border-indigo-500/20' : 'bg-slate-950 text-cyan-500 border border-slate-800'}`}>
-                        <Network size={20} />
+                      <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                        <div className={`p-2 rounded-lg shrink-0 ${isActive ? 'bg-indigo-950/30 text-indigo-400 border border-indigo-500/20' : 'bg-slate-950 text-cyan-500 border border-slate-800'}`}>
+                          <Network size={20} />
+                        </div>
+                        <div className="min-w-0 overflow-hidden">
+                          <h3 className={`text-base font-bold mb-0.5 truncate transition-colors leading-tight ${isActive ? 'text-indigo-300' : 'text-white group-hover:text-cyan-400'}`} title={tg.name}>{tg.name}</h3>
+                          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80 line-clamp-1">{tg.description}</div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <div className="flex items-center gap-1 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">
                           <Layers size={10} /> {tg.memberCount} UNITS
                         </div>
@@ -273,10 +279,6 @@ const TopologiesManagement: React.FC<TopologiesManagementProps> = ({
                           </div>
                         )}
                       </div>
-                    </div>
-                    <div className="mb-4">
-                      <h3 className={`text-base font-bold mb-0.5 truncate transition-colors leading-tight ${isActive ? 'text-indigo-300' : 'text-white group-hover:text-cyan-400'}`}>{tg.name}</h3>
-                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80 line-clamp-1">{tg.description}</div>
                     </div>
                     <div className="flex-1">
                       <div className="flex flex-wrap gap-1.5">
@@ -323,9 +325,9 @@ const TopologiesManagement: React.FC<TopologiesManagementProps> = ({
                     <tr key={tg.id} className="hover:bg-slate-800/40 transition-colors group cursor-pointer" onClick={() => onEnter(String(tg.id))}>
                       <td className="p-4">
                         <div className="flex items-center gap-4">
-                          <div className={`p-2 rounded-lg border ${isActive ? 'bg-indigo-950/30 text-indigo-400 border-indigo-500/30' : 'bg-slate-950 text-cyan-500 border border-slate-800'}`}><Network size={18} /></div>
-                          <div>
-                            <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{tg.name}</div>
+                          <div className={`p-2 rounded-lg border shrink-0 ${isActive ? 'bg-indigo-950/30 text-indigo-400 border-indigo-500/30' : 'bg-slate-950 text-cyan-500 border border-slate-800'}`}><Network size={18} /></div>
+                          <div className="min-w-0 overflow-hidden">
+                            <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors truncate max-w-xs" title={tg.name}>{tg.name}</div>
                             <div className="text-[9px] uppercase font-black text-slate-500 tracking-widest">ID: {tg.id}</div>
                           </div>
                         </div>

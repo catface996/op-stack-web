@@ -249,7 +249,7 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
         {/* Agents Grid - Redesigned Cards */}
         <div className="flex-1 overflow-auto custom-scrollbar">
             {paginatedAgents.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 auto-rows-fr">
                     {paginatedAgents.map(agent => {
                         const isSupervisor = agent.role === AgentRole.TEAM_SUPERVISOR || agent.role === AgentRole.GLOBAL_SUPERVISOR;
                         const roleLabel = agent.role === AgentRole.GLOBAL_SUPERVISOR ? 'Global Orchestrator' :
@@ -264,19 +264,20 @@ const AgentManagement: React.FC<AgentManagementProps> = ({
 
                                 <div className="p-5 flex flex-col flex-1">
                                     <div className="flex justify-between items-start mb-4">
-                                        <div className={`p-2 rounded-lg ${isSupervisor ? 'bg-indigo-950/30 text-indigo-400 border border-indigo-500/20' : 'bg-slate-950 text-slate-400 border border-slate-800'}`}>
-                                            {isSupervisor ? <Shield size={20} /> : <Zap size={20} />}
+                                        <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                                            <div className={`p-2 rounded-lg shrink-0 ${isSupervisor ? 'bg-indigo-950/30 text-indigo-400 border border-indigo-500/20' : 'bg-slate-950 text-slate-400 border border-slate-800'}`}>
+                                                {isSupervisor ? <Shield size={20} /> : <Zap size={20} />}
+                                            </div>
+                                            <div className="min-w-0 overflow-hidden">
+                                                <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight" title={agent.name}>{agent.name}</h3>
+                                                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">
+                                                    {roleLabel}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border tracking-wider ${getStatusColor(agent.status)}`}>
+                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border tracking-wider shrink-0 ${getStatusColor(agent.status)}`}>
                                             {agent.status}
                                         </span>
-                                    </div>
-
-                                    <div className="mb-4">
-                                        <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight">{agent.name}</h3>
-                                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">
-                                            {roleLabel}
-                                        </div>
                                     </div>
 
                                     <div className="space-y-2.5 flex-1">

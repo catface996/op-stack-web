@@ -28,8 +28,12 @@ import {
   PanelRightOpen,
   List,
   X,
+  Shield,
+  Unlink,
+  Check,
 } from 'lucide-react';
 import { TopologyReportTemplates } from './TopologyReportTemplates';
+import { useAgents } from '../../services/hooks/useAgents';
 
 interface TopologyDetailViewProps {
   topologyId: number;
@@ -74,6 +78,11 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
   // Dialog state
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<TopologyMember | null>(null);
+
+  // Supervisor binding state
+  const [showSupervisorSelect, setShowSupervisorSelect] = useState(false);
+  const [showUnbindConfirm, setShowUnbindConfirm] = useState(false);
+  const [supervisorBinding, setSupervisorBinding] = useState(false);
   const [showReportTemplates, setShowReportTemplates] = useState(false);
 
   // Fetch topology details - T028: Uses topologyApi.get() instead of resourceApi.get()
@@ -138,6 +147,34 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
       refreshMembers();
       // Refresh topology graph
       setGraphKey(prev => prev + 1);
+    }
+  };
+
+  // Handle bind supervisor
+  const handleBindSupervisor = async (agentId: number) => {
+    setSupervisorBinding(true);
+    try {
+      const updated = await topologyApi.bindSupervisor({ topologyId, agentId });
+      setTopology(updated);
+      setShowSupervisorSelect(false);
+    } catch (err) {
+      console.error('Failed to bind supervisor:', err);
+    } finally {
+      setSupervisorBinding(false);
+    }
+  };
+
+  // Handle unbind supervisor
+  const handleUnbindSupervisor = async () => {
+    setSupervisorBinding(true);
+    try {
+      const updated = await topologyApi.unbindSupervisor({ topologyId });
+      setTopology(updated);
+      setShowUnbindConfirm(false);
+    } catch (err) {
+      console.error('Failed to unbind supervisor:', err);
+    } finally {
+      setSupervisorBinding(false);
     }
   };
 
@@ -356,6 +393,46 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
         {/* Right: Members Sidebar */}
         {showSidebar && (
           <div className="w-72 border-l border-slate-800 bg-slate-900/50 flex flex-col">
+            {/* Global Supervisor Section */}
+            <div className="p-3 border-b border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                  <Shield size={12} />
+                  Global Supervisor
+                </div>
+              </div>
+              {topology.globalSupervisorAgentId ? (
+                <div className="flex items-center justify-between p-2 bg-indigo-950/30 border border-indigo-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="p-1.5 bg-indigo-900/50 rounded">
+                      <Shield size={12} className="text-indigo-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{topology.globalSupervisorAgentName}</p>
+                      <p className="text-[9px] text-indigo-400 uppercase">{topology.globalSupervisorAgentRole?.replace(/_/g, ' ')}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowUnbindConfirm(true)}
+                    disabled={supervisorBinding}
+                    className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-all"
+                    title="Unbind supervisor"
+                  >
+                    <Unlink size={12} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowSupervisorSelect(true)}
+                  disabled={supervisorBinding}
+                  className="w-full flex items-center justify-center gap-2 p-2 bg-slate-950 border border-dashed border-slate-700 hover:border-indigo-500/50 rounded-lg text-xs text-slate-500 hover:text-indigo-400 transition-all"
+                >
+                  {supervisorBinding ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  Assign Supervisor
+                </button>
+              )}
+            </div>
+
             {/* Sidebar header */}
             <div className="p-3 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -465,6 +542,128 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Supervisor Select Modal */}
+      {showSupervisorSelect && (
+        <SupervisorSelectModal
+          onSelect={handleBindSupervisor}
+          onClose={() => setShowSupervisorSelect(false)}
+          binding={supervisorBinding}
+        />
+      )}
+
+      {/* Unbind Supervisor Confirmation Modal */}
+      {showUnbindConfirm && topology.globalSupervisorAgentName && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="h-1 w-full bg-red-600"></div>
+            <div className="p-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-950/50 rounded-lg">
+                  <Unlink size={20} className="text-red-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">Unbind Supervisor</h3>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider">Confirm action</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-400 mb-4">
+                Are you sure you want to unbind <span className="font-bold text-white">{topology.globalSupervisorAgentName}</span> from this topology?
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowUnbindConfirm(false)}
+                  className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUnbindSupervisor}
+                  disabled={supervisorBinding}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold text-white disabled:opacity-50 flex items-center gap-2 transition-colors"
+                >
+                  {supervisorBinding && <Loader2 size={14} className="animate-spin" />}
+                  Unbind
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Supervisor Select Modal Component
+interface SupervisorSelectModalProps {
+  onSelect: (agentId: number) => void;
+  onClose: () => void;
+  binding: boolean;
+}
+
+const SupervisorSelectModal: React.FC<SupervisorSelectModalProps> = ({ onSelect, onClose, binding }) => {
+  const { agents, loading } = useAgents();
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+          <h3 className="font-bold text-white text-sm">Select Global Supervisor</h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={20} /></button>
+        </div>
+        <div className="p-4 space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="text-indigo-400 animate-spin" />
+            </div>
+          ) : agents.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <Shield size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No agents available</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {agents.map(agent => {
+                const isSupervisor = agent.role === 'GLOBAL_SUPERVISOR' || agent.role === 'TEAM_SUPERVISOR';
+                return (
+                  <button
+                    key={agent.id}
+                    onClick={() => setSelectedId(agent.id)}
+                    className={`w-full p-3 rounded-lg border text-left transition-all ${
+                      selectedId === agent.id
+                        ? 'bg-indigo-950/30 border-indigo-500/50'
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded ${isSupervisor ? 'bg-indigo-950/50 text-indigo-400' : 'bg-slate-900 text-slate-400'}`}>
+                        <Shield size={14} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{agent.name}</p>
+                        <p className="text-[10px] text-slate-500 uppercase">{agent.role.replace(/_/g, ' ')}</p>
+                      </div>
+                      {selectedId === agent.id && <Check size={16} className="text-indigo-400" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
+            <button
+              onClick={() => selectedId && onSelect(selectedId)}
+              disabled={!selectedId || binding}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-bold text-white disabled:opacity-50 flex items-center gap-2"
+            >
+              {binding && <Loader2 size={14} className="animate-spin" />}
+              Assign
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

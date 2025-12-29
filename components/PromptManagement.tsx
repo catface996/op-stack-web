@@ -289,7 +289,7 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ onBack }) => {
 
         {/* Card View */}
         {!loading && !error && templates.length > 0 && viewMode === 'card' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 auto-rows-fr">
             {templates.map(template => {
               const style = getUsageStyle(template.usageName);
               const UsageIcon = getUsageIcon(getUsageCode(template.usageId));
@@ -302,10 +302,16 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ onBack }) => {
                   <div className={`h-1 w-full ${style.accent} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
                   <div className="p-5 flex flex-col flex-1">
                     <div className="flex justify-between items-start mb-4">
-                      <div className={`p-2 rounded-lg ${style.bg} ${style.border} ${style.text}`}>
-                        <UsageIcon size={20} />
+                      <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                        <div className={`p-2 rounded-lg shrink-0 ${style.bg} ${style.border} ${style.text}`}>
+                          <UsageIcon size={20} />
+                        </div>
+                        <div className="min-w-0 overflow-hidden">
+                          <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors" title={template.name}>{template.name}</h3>
+                          <p className="text-[10px] text-slate-500 font-medium line-clamp-1 opacity-80 italic">{template.description || 'No description'}</p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border tracking-widest ${style.bg} ${style.border} ${style.text}`}>
                           {template.usageName || 'Uncategorized'}
                         </div>
@@ -313,10 +319,6 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ onBack }) => {
                           <GitBranch size={10} /> v{template.currentVersion}
                         </div>
                       </div>
-                    </div>
-                    <div className="mb-4">
-                      <h3 className="text-base font-bold text-white mb-1 truncate group-hover:text-cyan-400 transition-colors">{template.name}</h3>
-                      <p className="text-[10px] text-slate-500 font-medium line-clamp-1 opacity-80 italic">{template.description || 'No description'}</p>
                     </div>
                     <div className="flex-1 bg-slate-950/50 rounded-lg border border-slate-800/60 p-3 mb-4 overflow-hidden relative">
                       <p className="text-[10px] font-mono text-slate-400 leading-relaxed line-clamp-4">{template.content}</p>
@@ -370,11 +372,11 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ onBack }) => {
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-4">
-                          <div className={`p-2 rounded-lg border ${style.bg} ${style.border} ${style.text}`}>
+                          <div className={`p-2 rounded-lg border shrink-0 ${style.bg} ${style.border} ${style.text}`}>
                             <UsageIcon size={16} />
                           </div>
-                          <div>
-                            <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{template.name}</div>
+                          <div className="min-w-0 overflow-hidden">
+                            <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors truncate max-w-xs" title={template.name}>{template.name}</div>
                             <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">ID: {template.id}</div>
                           </div>
                         </div>

@@ -542,6 +542,9 @@ export interface TopologyDTO {
   status: ResourceStatus;
   statusDisplay: string;
   coordinatorAgentId: number | null;  // NEW: Coordinator Agent ID (Feature: 005-api-reintegration)
+  globalSupervisorAgentId: number | null;
+  globalSupervisorAgentName: string | null;
+  globalSupervisorAgentRole: string | null;
   attributes: string | null;
   memberCount: number;  // Direct count from backend, no parsing needed
   version: number;

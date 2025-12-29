@@ -884,7 +884,13 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  // Load audit logs on demand when switching to history tab
+                  if (tab.id === 'history' && logs.length === 0) {
+                    refreshLogs();
+                  }
+                }}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all border-b-2 -mb-px ${
                   activeTab === tab.id
                     ? 'text-cyan-400 border-cyan-400'

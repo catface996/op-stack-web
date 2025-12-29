@@ -338,7 +338,7 @@ const ResourceManagement: React.FC<ResourceManagementProps> = ({ onViewDetail })
                 </table>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 auto-rows-fr">
                 {resources.map((resource) => {
                   const style = getTypeStyle(resource.resourceTypeCode, resource.name);
                   const statusStyle = getStatusStyle(resource.status);
@@ -354,30 +354,26 @@ const ResourceManagement: React.FC<ResourceManagementProps> = ({ onViewDetail })
                       <div className={`h-1 w-full ${style.accent} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
 
                       <div className="p-5 flex flex-col flex-1">
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="flex items-center gap-3">
-                            {/* Tech-style Icon Container */}
-                            <div className="relative">
-                              {/* Glow effect */}
-                              <div className={`absolute inset-0 rounded-xl ${style.accent} opacity-0 group-hover:opacity-20 blur-xl transition-all duration-500`}></div>
-                              {/* Outer ring */}
-                              <div className={`relative p-0.5 rounded-xl bg-gradient-to-br ${style.gradient} group-hover:shadow-lg group-hover:shadow-current/20 transition-all duration-300`}>
-                                {/* Inner container */}
-                                <div className={`p-3 rounded-[10px] bg-slate-950/90 backdrop-blur-sm ${style.color}`}>
-                                  <Icon size={24} className="drop-shadow-sm" />
-                                </div>
+                        {/* Card Header - Icon and Name on same line */}
+                        <div className="flex items-center gap-3 mb-4">
+                          {/* Icon */}
+                          <div className="relative shrink-0">
+                            {/* Glow effect */}
+                            <div className={`absolute inset-0 rounded-xl ${style.accent} opacity-0 group-hover:opacity-20 blur-xl transition-all duration-500`}></div>
+                            {/* Outer ring */}
+                            <div className={`relative p-0.5 rounded-xl bg-gradient-to-br ${style.gradient} group-hover:shadow-lg group-hover:shadow-current/20 transition-all duration-300`}>
+                              {/* Inner container */}
+                              <div className={`p-3 rounded-[10px] bg-slate-950/90 backdrop-blur-sm ${style.color}`}>
+                                <Icon size={24} className="drop-shadow-sm" />
                               </div>
-                              {/* Subtle corner accents */}
-                              <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 ${style.accent} rounded-full opacity-0 group-hover:opacity-60 transition-all duration-300 blur-[1px]`}></div>
                             </div>
-                            <div className="min-w-0">
-                              <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight">{resource.name}</h3>
-                              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80">{resource.resourceTypeName}</div>
-                            </div>
+                            {/* Subtle corner accents */}
+                            <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 ${style.accent} rounded-full opacity-0 group-hover:opacity-60 transition-all duration-300 blur-[1px]`}></div>
                           </div>
-                          <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${statusStyle.color} ${statusStyle.bgColor} border-current/30`}>
-                            <span className={`w-1 h-1 rounded-full ${statusStyle.color.replace('text-', 'bg-')}`}></span>
-                            {statusStyle.label}
+                          {/* Name and Type */}
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight max-w-[260px]" title={resource.name}>{resource.name}</h3>
+                            <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80 truncate max-w-[260px]">{resource.resourceTypeName}</div>
                           </div>
                         </div>
 
@@ -414,9 +410,16 @@ const ResourceManagement: React.FC<ResourceManagementProps> = ({ onViewDetail })
                             <button onClick={(e) => { e.stopPropagation(); setEditingResource(resource); setIsModalOpen(true); }} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-cyan-400 transition-all"><Settings size={15} /></button>
                             <button onClick={(e) => { e.stopPropagation(); setResourceToDelete(resource); setIsDeleteModalOpen(true); }} className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-500 hover:text-red-400 transition-all"><Trash2 size={15} /></button>
                           </div>
-                          <button className="px-2.5 py-1 rounded bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold transition-all flex items-center gap-1.5">
-                            Analyze <ArrowUpRight size={12} />
-                          </button>
+                          <div className="flex items-center gap-3">
+                            {/* Status Badge */}
+                            <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${statusStyle.color} ${statusStyle.bgColor}`}>
+                              <span className={`w-1 h-1 rounded-full ${statusStyle.color.replace('text-', 'bg-')}`}></span>
+                              {statusStyle.label}
+                            </div>
+                            <button className="px-2.5 py-1 rounded bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold transition-all flex items-center gap-1.5">
+                              Analyze <ArrowUpRight size={12} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

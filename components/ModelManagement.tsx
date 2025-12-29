@@ -263,7 +263,7 @@ const ModelManagement: React.FC<ModelManagementProps> = ({ onBack }) => {
 
         {/* Card View */}
         {!loading && !error && models.length > 0 && viewMode === 'card' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 auto-rows-fr">
             {models.map((model) => {
               const style = getModelStatusStyle(model.is_active);
               const isToggling = togglingId === model.id;
@@ -275,11 +275,21 @@ const ModelManagement: React.FC<ModelManagementProps> = ({ onBack }) => {
                   <div className={`h-1 w-full ${style.accent} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
                   <div className="p-5 flex flex-col flex-1">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 group-hover:text-cyan-400 transition-colors">
-                        <Cpu size={20} />
+                      <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                        <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 group-hover:text-cyan-400 transition-colors shrink-0">
+                          <Cpu size={20} />
+                        </div>
+                        <div className="min-w-0 overflow-hidden">
+                          <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight" title={model.name}>
+                            {model.name}
+                          </h3>
+                          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80 font-mono truncate">
+                            {model.model_id}
+                          </div>
+                        </div>
                       </div>
                       {/* Switch toggle for active status */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <span className={`text-[9px] font-bold uppercase tracking-wider ${model.is_active ? 'text-green-400' : 'text-slate-500'}`}>
                           {model.is_active ? 'Active' : 'Inactive'}
                         </span>
@@ -302,14 +312,6 @@ const ModelManagement: React.FC<ModelManagementProps> = ({ onBack }) => {
                             {isToggling && <Loader2 size={10} className="animate-spin text-slate-400" />}
                           </span>
                         </button>
-                      </div>
-                    </div>
-                    <div className="mb-4">
-                      <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight">
-                        {model.name}
-                      </h3>
-                      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80 font-mono">
-                        {model.model_id}
                       </div>
                     </div>
                     {model.description && (
@@ -405,11 +407,11 @@ const ModelManagement: React.FC<ModelManagementProps> = ({ onBack }) => {
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-4">
-                          <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 group-hover:text-cyan-400 transition-colors">
+                          <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 group-hover:text-cyan-400 transition-colors shrink-0">
                             <Brain size={18} />
                           </div>
-                          <div>
-                            <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">
+                          <div className="min-w-0 overflow-hidden">
+                            <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors truncate max-w-xs" title={model.name}>
                               {model.name}
                             </div>
                             {model.description && (

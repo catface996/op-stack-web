@@ -288,8 +288,8 @@ const DiscoveryManagement: React.FC<DiscoveryManagementProps> = ({ sources, agen
                       </div>
                     </div>
 
-                    <div className="mb-4">
-                      <h3 className="text-base font-bold text-white mb-0.5 truncate leading-tight hover:text-cyan-400 transition-colors">{source.name}</h3>
+                    <div className="mb-4 min-w-0 overflow-hidden">
+                      <h3 className="text-base font-bold text-white mb-0.5 truncate leading-tight hover:text-cyan-400 transition-colors" title={source.name}>{source.name}</h3>
                       <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.15em] opacity-80 truncate">{source.type} Connector</div>
                     </div>
 
@@ -344,11 +344,11 @@ const DiscoveryManagement: React.FC<DiscoveryManagementProps> = ({ sources, agen
                     <tr key={source.id} className="hover:bg-slate-800/40 transition-colors group">
                       <td className="p-4">
                         <div className="flex items-center gap-4">
-                          <div className="p-2 bg-slate-950 border border-slate-800 rounded-lg">
+                          <div className="p-2 bg-slate-950 border border-slate-800 rounded-lg shrink-0">
                             {getIcon(source.type)}
                           </div>
-                          <div>
-                            <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{source.name}</div>
+                          <div className="min-w-0 overflow-hidden">
+                            <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors truncate max-w-xs" title={source.name}>{source.name}</div>
                             <div className="text-[9px] uppercase font-black text-slate-500 tracking-widest">{source.id}</div>
                           </div>
                         </div>

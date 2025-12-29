@@ -261,7 +261,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({ onBack }) => {
           </div>
         ) : categories.length > 0 ? (
           viewMode === 'card' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-6 auto-rows-fr">
               {categories.map(category => {
                 const style = getCategoryStyle(category.name);
                 const Icon = style.icon;

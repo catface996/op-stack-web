@@ -221,7 +221,7 @@ export const AddMembersDialog: React.FC<AddMembersDialogProps> = ({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-white truncate">{resource.name}</span>
+                        <span className="text-sm font-bold text-white truncate" title={resource.name}>{resource.name}</span>
                         {isSubgraph && (
                           <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-indigo-950/50 text-indigo-400 border border-indigo-500/30">
                             Subgraph

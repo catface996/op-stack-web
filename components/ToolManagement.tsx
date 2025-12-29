@@ -365,7 +365,7 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ onBack }) => {
           </div>
         ) : tools.length > 0 ? (
           viewMode === 'card' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 auto-rows-fr">
               {tools.map(tool => {
                 const statusStyle = getStatusStyle(tool.status);
                 const ExecutorIcon = getExecutorIcon(tool.executor_type);
@@ -374,16 +374,18 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ onBack }) => {
                     <div className={`h-1 w-full ${tool.status === 'active' ? 'bg-emerald-500' : 'bg-slate-600'} opacity-30 group-hover:opacity-100 transition-opacity`}></div>
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex justify-between items-start mb-4">
-                        <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-cyan-400 group-hover:text-cyan-300 transition-colors">
-                          <ExecutorIcon size={20} />
+                        <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                          <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-cyan-400 group-hover:text-cyan-300 transition-colors shrink-0">
+                            <ExecutorIcon size={20} />
+                          </div>
+                          <div className="min-w-0 overflow-hidden">
+                            <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-cyan-400 transition-colors leading-tight" title={tool.display_name}>{tool.display_name}</h3>
+                            <div className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest opacity-80 truncate">{tool.name}</div>
+                          </div>
                         </div>
-                        <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${statusStyle.bg} ${statusStyle.border} ${statusStyle.text}`}>
+                        <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${statusStyle.bg} ${statusStyle.border} ${statusStyle.text}`}>
                           {tool.status}
                         </div>
-                      </div>
-                      <div className="mb-3">
-                        <h3 className="text-base font-bold text-white mb-0.5 group-hover:text-cyan-400 transition-colors leading-tight">{tool.display_name}</h3>
-                        <div className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest opacity-80">{tool.name}</div>
                       </div>
                       <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 mb-3 flex-1">{tool.description}</p>
                       
@@ -458,12 +460,12 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ onBack }) => {
                       <tr key={tool.id} className="hover:bg-slate-800/40 transition-colors group cursor-pointer" onClick={() => openModal(tool)}>
                         <td className="p-4">
                           <div className="flex items-center gap-4">
-                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-cyan-400">
+                            <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-cyan-400 shrink-0">
                               <ExecutorIcon size={18} />
                             </div>
-                            <div>
-                              <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{tool.display_name}</div>
-                              <div className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest">{tool.name}</div>
+                            <div className="min-w-0 overflow-hidden">
+                              <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors truncate max-w-xs" title={tool.display_name}>{tool.display_name}</div>
+                              <div className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest truncate">{tool.name}</div>
                             </div>
                           </div>
                         </td>

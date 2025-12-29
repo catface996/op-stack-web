@@ -5,7 +5,7 @@
  * Feature: 007-prompt-template-api
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
   Plus,
@@ -26,6 +26,9 @@ import {
   Shield,
   Zap,
   Terminal,
+  ChevronLeft,
+  ChevronRight,
+  Search,
   type LucideIcon,
 } from 'lucide-react';
 import { useTemplateUsages } from '../../services/hooks/useTemplateUsages';
@@ -63,10 +66,40 @@ interface UsageManagementProps {
   onBack: () => void;
 }
 
+const PAGE_SIZE = 12;
+
 const UsageManagement: React.FC<UsageManagementProps> = ({ onBack }) => {
   const { usages, loading, error, refresh, createUsage, deleteUsage, mutationLoading, mutationError } = useTemplateUsages();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter usages by search query
+  const filteredUsages = useMemo(() => {
+    if (!searchQuery.trim()) return usages;
+    const query = searchQuery.toLowerCase();
+    return usages.filter(
+      (usage) =>
+        usage.name.toLowerCase().includes(query) ||
+        usage.code.toLowerCase().includes(query) ||
+        (usage.description && usage.description.toLowerCase().includes(query))
+    );
+  }, [usages, searchQuery]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredUsages.length / PAGE_SIZE));
+  const paginatedUsages = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredUsages.slice(start, start + PAGE_SIZE);
+  }, [filteredUsages, currentPage]);
+
+  // Reset to page 1 when filtered results change
+  React.useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -101,13 +134,26 @@ const UsageManagement: React.FC<UsageManagementProps> = ({ onBack }) => {
             <p className="text-slate-400 text-xs mt-1 font-medium">Manage template usage categories for organization.</p>
           </div>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          disabled={mutationLoading}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-all shadow-lg shadow-purple-900/20 font-bold text-xs tracking-widest disabled:opacity-50"
-        >
-          <Plus size={14} /> New Usage
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Search Input */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search usages..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-48 bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500/50 focus:outline-none transition-all"
+            />
+          </div>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            disabled={mutationLoading}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-all shadow-lg shadow-purple-900/20 font-bold text-xs tracking-widest disabled:opacity-50"
+          >
+            <Plus size={14} /> New Usage
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -140,46 +186,98 @@ const UsageManagement: React.FC<UsageManagementProps> = ({ onBack }) => {
           </div>
         )}
 
-        {/* Usage List */}
-        {!loading && !error && usages.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {usages.map((usage) => {
+        {/* No Search Results */}
+        {!loading && !error && usages.length > 0 && filteredUsages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-64 text-slate-500 bg-slate-900/20 border border-dashed border-slate-800 rounded-2xl">
+            <Search size={48} className="opacity-10 mb-4" />
+            <p className="text-sm font-bold tracking-wide">No matching usages found.</p>
+            <p className="text-xs text-slate-600 mt-2">Try a different search term.</p>
+          </div>
+        )}
+
+        {/* Usage Card Grid */}
+        {!loading && !error && filteredUsages.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 auto-rows-fr">
+            {paginatedUsages.map((usage) => {
               const UsageIcon = getUsageIcon(usage.code);
               return (
                 <div
                   key={usage.id}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-purple-500/40 transition-all"
+                  className="relative bg-slate-900 border border-slate-800/80 rounded-xl hover:border-purple-500/40 hover:bg-slate-800/40 transition-all group flex flex-col min-h-[180px] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-purple-950/10"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-purple-950/30 border border-purple-500/20 text-purple-400">
-                        <UsageIcon size={18} />
+                  {/* Decorative Top Line */}
+                  <div className="h-1 w-full bg-purple-600 opacity-30 group-hover:opacity-100 transition-opacity"></div>
+
+                  <div className="p-5 flex flex-col flex-1">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                        <div className="p-2 rounded-lg shrink-0 bg-purple-950/30 border border-purple-500/20 text-purple-400">
+                          <UsageIcon size={20} />
+                        </div>
+                        <div className="min-w-0 overflow-hidden">
+                          <h3 className="text-base font-bold text-white mb-0.5 truncate group-hover:text-purple-400 transition-colors leading-tight" title={usage.name}>{usage.name}</h3>
+                          <code className="text-[9px] font-mono text-purple-400 bg-purple-950/30 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                            {usage.code}
+                          </code>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-white">{usage.name}</h3>
-                        <code className="text-[10px] font-mono text-purple-400 bg-purple-950/30 px-1.5 py-0.5 rounded">
-                          {usage.code}
-                        </code>
-                      </div>
+                      <button
+                        onClick={() => setDeleteConfirmId(usage.id)}
+                        disabled={mutationLoading}
+                        className="p-1.5 rounded-lg shrink-0 hover:bg-slate-700/50 text-slate-500 hover:text-red-400 transition-all disabled:opacity-50"
+                        title="Delete usage"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setDeleteConfirmId(usage.id)}
-                      disabled={mutationLoading}
-                      className="p-1.5 rounded hover:bg-slate-800 text-slate-500 hover:text-red-400 transition-all disabled:opacity-50"
-                      title="Delete usage"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+
+                    <div className="flex-1">
+                      {usage.description ? (
+                        <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">{usage.description}</p>
+                      ) : (
+                        <p className="text-xs text-slate-600 italic">No description</p>
+                      )}
+                    </div>
+
+                    <div className="mt-auto pt-4 border-t border-slate-800/40 flex items-center justify-between text-[9px] font-black text-slate-600 uppercase tracking-widest">
+                      <span>ID #{usage.id}</span>
+                      <Tag size={10} />
+                    </div>
                   </div>
-                  {usage.description && (
-                    <p className="text-xs text-slate-500 line-clamp-2">{usage.description}</p>
-                  )}
                 </div>
               );
             })}
           </div>
         )}
+
       </div>
+
+      {/* Pagination - Outside scrollable area */}
+      {!loading && !error && usages.length > 0 && (
+        <div className="flex justify-center items-center gap-6 pt-4 border-t border-slate-900/50 shrink-0">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
+          >
+            <ChevronLeft size={14} /> Prev
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-500 tracking-widest">Page</span>
+            <span className="text-xs text-white bg-slate-800 px-2 py-0.5 rounded font-mono font-bold">{currentPage}</span>
+            <span className="text-[10px] text-slate-500 font-bold">/</span>
+            <span className="text-xs text-slate-400 font-mono font-bold">{totalPages}</span>
+            <span className="text-[10px] text-slate-600 ml-2">({filteredUsages.length} total{searchQuery && ', filtered'})</span>
+          </div>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 disabled:opacity-30 hover:bg-slate-800 text-slate-300 transition-all font-bold text-xs"
+          >
+            Next <ChevronRight size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Create Modal */}
       {isCreateModalOpen && (
