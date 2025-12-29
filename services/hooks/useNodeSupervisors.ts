@@ -3,18 +3,19 @@
  *
  * Fetch team supervisors for a specific node from all topologies it belongs to
  * Feature: 013-agent-config-page
+ * Updated for Feature 040: Uses unified agent-bounds API
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { topologyApi } from '../api/topology';
-import type { TopologyDTO, HierarchicalAgentDTO } from '../api/types';
+import { agentBoundsApi, type HierarchyAgentDTO } from '../api/agentBounds';
 
 /**
  * Supervisor with topology context
  */
 export interface NodeSupervisorInfo {
   /** Supervisor agent */
-  supervisor: HierarchicalAgentDTO;
+  supervisor: HierarchyAgentDTO;
   /** Topology ID this supervisor belongs to */
   topologyId: number;
   /** Topology name for display */
@@ -73,30 +74,31 @@ export function useNodeSupervisors(nodeId: number | null): UseNodeSupervisorsRes
         return;
       }
 
-      // Step 2: For each topology, query the hierarchical team
+      // Step 2: For each topology, query the hierarchy using new API
       const supervisorInfos: NodeSupervisorInfo[] = [];
 
       for (const topology of topologies) {
         try {
-          const teamData = await topologyApi.queryHierarchicalTeam({
+          // Use new unified API: agent-bounds/query-hierarchy
+          const hierarchyData = await agentBoundsApi.queryHierarchy({
             topologyId: topology.id,
           });
 
           if (currentRequestId !== requestIdRef.current) return;
 
           // Find this node's team in the hierarchical data
-          const nodeTeam = teamData.teams.find(team => team.nodeId === nodeId);
+          const nodeTeam = hierarchyData.teams.find(team => team.nodeId === nodeId);
 
           if (nodeTeam && nodeTeam.supervisor) {
             supervisorInfos.push({
               supervisor: nodeTeam.supervisor,
               topologyId: topology.id,
-              topologyName: teamData.topologyName || topology.name,
+              topologyName: hierarchyData.topologyName || topology.name,
             });
           }
         } catch (err) {
           // Continue with other topologies if one fails
-          console.warn(`Failed to fetch hierarchical team for topology ${topology.id}:`, err);
+          console.warn(`Failed to fetch hierarchy for topology ${topology.id}:`, err);
         }
       }
 

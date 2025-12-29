@@ -9,7 +9,30 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
         proxy: {
-          // All API requests routed through gateway
+          // SSE streaming endpoint - direct to service (bypass gateway)
+          '/api/service/v1/executions': {
+            target: 'http://localhost:8081',
+            changeOrigin: true,
+            secure: false,
+            ws: false,
+            // Critical: configure for SSE streaming
+            configure: (proxy, options) => {
+              proxy.on('proxyReq', (proxyReq, req, res) => {
+                console.log('[SSE Proxy] Request:', req.method, req.url, '-> http://localhost:8081');
+              });
+              proxy.on('proxyRes', (proxyRes, req, res) => {
+                console.log('[SSE Proxy] Response status:', proxyRes.statusCode);
+                // Disable buffering for SSE
+                proxyRes.headers['cache-control'] = 'no-cache';
+                proxyRes.headers['connection'] = 'keep-alive';
+                proxyRes.headers['x-accel-buffering'] = 'no';
+              });
+              proxy.on('error', (err, req, res) => {
+                console.error('[SSE Proxy] Error:', err.message);
+              });
+            },
+          },
+          // All other API requests routed through gateway
           '/api': {
             target: 'http://localhost:8080',
             changeOrigin: true,

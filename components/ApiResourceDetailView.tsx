@@ -30,6 +30,7 @@ import {
 import { resourceApi, getResourceTypeIcon, getStatusConfig, STATUS_CONFIG } from '../services/api/resources';
 import { nodeApi } from '../services/api/nodes';
 import { listAgents } from '../services/api/agents';
+import { agentBoundsApi } from '../services/api/agentBounds';
 import { useResourceAuditLogs } from '../services/hooks/useResourceAuditLogs';
 import { useResourceTypes } from '../services/hooks/useResourceTypes';
 import { useNodeTopologies } from '../services/hooks/useNodeTopologies';
@@ -887,7 +888,12 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
             onBind={async (agentId) => {
               setSupervisorBinding(true);
               try {
-                await nodeApi.bindAgent({ nodeId: resourceId, agentId });
+                // Use new unified API: agent-bounds/bind
+                await agentBoundsApi.bind({
+                  agentId,
+                  entityId: resourceId,
+                  entityType: 'NODE',
+                });
                 refreshSupervisors();
                 setIsBindSupervisorModalOpen(false);
                 return true;
@@ -978,7 +984,12 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
                       if (supervisorUnbindConfirmInput !== supervisorToUnbind.name) return;
                       setSupervisorBinding(true);
                       try {
-                        await nodeApi.unbindAgent({ nodeId: resourceId, agentId: supervisorToUnbind.id });
+                        // Use new unified API: agent-bounds/unbind
+                        await agentBoundsApi.unbind({
+                          agentId: supervisorToUnbind.id,
+                          entityId: resourceId,
+                          entityType: 'NODE',
+                        });
                         refreshSupervisors();
                         setSupervisorToUnbind(null);
                         setSupervisorUnbindConfirmInput('');
@@ -1412,21 +1423,38 @@ const BindAgentModal: React.FC<BindAgentModalProps> = ({ nodeId, onBind, onClose
   const PAGE_SIZE = 6;
 
   useEffect(() => {
-    const fetchUnboundAgents = async () => {
+    const fetchAvailableAgents = async () => {
       setLoading(true);
       try {
-        const result = await nodeApi.listUnboundAgents({ nodeId, page, size: PAGE_SIZE });
-        setAgents(result.content || []);
-        setTotalPages(result.totalPages || 1);
-        setTotal(result.totalElements || 0);
+        // Get bound agents for this node first
+        const boundResult = await agentBoundsApi.queryByEntity({
+          entityType: 'NODE',
+          entityId: nodeId,
+        });
+        const boundAgentIds = new Set(boundResult.map(b => b.agentId));
+
+        // Get all TEAM_WORKER agents (workers can be assigned to nodes)
+        const workersResult = await listAgents({ role: 'WORKER', page, size: PAGE_SIZE * 2 });
+        const allWorkers = workersResult.data?.content || [];
+
+        // Filter out already bound agents
+        const unboundAgents = allWorkers.filter(agent => !boundAgentIds.has(agent.id));
+
+        // Paginate client-side
+        const startIdx = (page - 1) * PAGE_SIZE;
+        const paginatedAgents = unboundAgents.slice(startIdx, startIdx + PAGE_SIZE);
+
+        setAgents(paginatedAgents);
+        setTotalPages(Math.ceil(unboundAgents.length / PAGE_SIZE) || 1);
+        setTotal(unboundAgents.length);
       } catch (err) {
-        console.error('Failed to fetch unbound agents:', err);
+        console.error('Failed to fetch available agents:', err);
         setAgents([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchUnboundAgents();
+    fetchAvailableAgents();
   }, [nodeId, page]);
 
   const handleBind = async () => {

@@ -4,10 +4,11 @@
  * Fetch hierarchical agent team structure for a topology
  * Used in Diagnosis page to render agent team hierarchy
  * Feature: Diagnosis Page Integration
+ * Updated for Feature 040: Uses unified agent-bounds API
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { topologyApi } from '../api/topology';
+import { agentBoundsApi, type HierarchyStructureDTO, type HierarchyAgentDTO, type HierarchyTeamDTO } from '../api/agentBounds';
 import type { HierarchicalTeamDTO, HierarchicalAgentDTO, HierarchicalTeamNodeDTO } from '../api/types';
 
 export interface UseHierarchicalTeamResult {
@@ -23,6 +24,38 @@ export interface UseHierarchicalTeamResult {
   error: string | null;
   /** Refresh data */
   refresh: () => void;
+}
+
+/**
+ * Convert new API HierarchyAgentDTO to old HierarchicalAgentDTO format
+ */
+function toHierarchicalAgentDTO(agent: HierarchyAgentDTO | null): HierarchicalAgentDTO | null {
+  if (!agent) return null;
+  return {
+    id: agent.id,
+    name: agent.name,
+    role: agent.role as HierarchicalAgentDTO['role'],
+    hierarchyLevel: agent.hierarchyLevel as HierarchicalAgentDTO['hierarchyLevel'],
+    specialty: agent.specialty,
+    model: agent.model,
+  };
+}
+
+/**
+ * Convert new API HierarchyStructureDTO to old HierarchicalTeamDTO format
+ */
+function toHierarchicalTeamDTO(data: HierarchyStructureDTO): HierarchicalTeamDTO {
+  return {
+    topologyId: data.topologyId,
+    topologyName: data.topologyName,
+    globalSupervisor: toHierarchicalAgentDTO(data.globalSupervisor),
+    teams: data.teams.map((team): HierarchicalTeamNodeDTO => ({
+      nodeId: team.nodeId,
+      nodeName: team.nodeName,
+      supervisor: toHierarchicalAgentDTO(team.supervisor),
+      workers: team.workers.map(w => toHierarchicalAgentDTO(w)!),
+    })),
+  };
 }
 
 /**
@@ -45,9 +78,11 @@ export function useHierarchicalTeam(topologyId: number | null): UseHierarchicalT
 
     try {
       console.log('[useHierarchicalTeam] Fetching team for topologyId:', topologyId);
-      const result = await topologyApi.queryHierarchicalTeam({ topologyId });
+      // Use new unified API: agent-bounds/query-hierarchy
+      const result = await agentBoundsApi.queryHierarchy({ topologyId });
       console.log('[useHierarchicalTeam] Result:', result);
-      setTeam(result);
+      // Convert to old format for backward compatibility
+      setTeam(toHierarchicalTeamDTO(result));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch hierarchical team';
       setError(message);

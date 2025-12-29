@@ -6,6 +6,7 @@
  * Feature: 007-prompt-template-api
  * Feature: 008-model-api-integration
  * Feature: 012-agent-api-integration
+ * Feature: 040-agent-bound-refactor
  */
 
 export * from './types';
@@ -17,3 +18,25 @@ export * from './prompt-templates';
 export * from './template-usages';
 export * from './models';
 export * from './agents';
+// Re-export agentBounds with explicit names to avoid conflicts with nodes.ts
+export {
+  agentBoundsApi,
+  bindGlobalSupervisor,
+  unbindGlobalSupervisor,
+  bindAgentToNode,
+  unbindAgentFromNode,
+  getNodeAgents,
+  getTopologyGlobalSupervisor,
+  getTopologyHierarchy,
+  type EntityType,
+  type HierarchyLevel,
+  type BindAgentRequest as AgentBoundsBindRequest,
+  type UnbindAgentRequest as AgentBoundsUnbindRequest,
+  type QueryByEntityRequest,
+  type QueryByAgentRequest,
+  type QueryHierarchyRequest,
+  type AgentBoundDTO,
+  type HierarchyAgentDTO,
+  type HierarchyTeamDTO,
+  type HierarchyStructureDTO,
+} from './agentBounds';
