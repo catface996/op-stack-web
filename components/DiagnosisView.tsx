@@ -21,13 +21,26 @@ import type { Agent, Team, TopologyGroup, TopologyNode, TopologyLink, LogMessage
 /**
  * Extract agent identifier from an ExecutionEvent
  * Priority:
- * 1. Parse from content (most reliable - contains [Agent] prefix)
- * 2. Use agentRole + agentName fields from event
- * 3. Use agentName field alone
- * 4. Fallback to 'System'
+ * 1. Use SSE stream fields (_is_global_supervisor, _team_name, _is_team_supervisor, _worker_name)
+ * 2. Parse from content (contains [Agent] prefix)
+ * 3. Fallback to 'System'
  */
 function getAgentIdentifier(event: ExecutionEvent): { id: string; name: string } {
-  // First try to parse from content (handles SSE streaming where content contains agent prefix)
+  // Priority 1: Use SSE stream agent identification fields (most reliable for llm_stream events)
+  if (event._is_global_supervisor) {
+    return { id: 'global-supervisor', name: 'Global Supervisor' };
+  }
+
+  if (event._team_name) {
+    if (event._is_team_supervisor) {
+      return { id: `team-supervisor-${event._team_name}`, name: `${event._team_name} Supervisor` };
+    }
+    if (event._worker_name) {
+      return { id: `worker-${event._team_name}-${event._worker_name}`, name: event._worker_name };
+    }
+  }
+
+  // Priority 2: Parse from content (handles events with [Agent] prefix in content)
   const agentInfo = parseAgentInfo(event.content);
 
   if (agentInfo) {
@@ -40,20 +53,7 @@ function getAgentIdentifier(event: ExecutionEvent): { id: string; name: string }
     }
   }
 
-  // Try to use agentRole field from event (if backend provides it)
-  if (event.agentRole) {
-    const role = event.agentRole.toLowerCase();
-    if (role === 'global_supervisor' || role === 'globalsupervisor') {
-      return { id: 'global-supervisor', name: event.agentName || 'Global Supervisor' };
-    } else if (role === 'team_supervisor' || role === 'teamsupervisor') {
-      const teamName = event.agentName?.replace(' Supervisor', '') || 'Unknown';
-      return { id: `team-supervisor-${teamName}`, name: event.agentName || `${teamName} Supervisor` };
-    } else if (role === 'worker') {
-      return { id: `worker-${event.agentName}`, name: event.agentName || 'Worker' };
-    }
-  }
-
-  // Fallback to agentName if available
+  // Fallback to agentName if available (legacy)
   if (event.agentName) {
     return { id: event.agentName.toLowerCase().replace(/\s+/g, '-'), name: event.agentName };
   }

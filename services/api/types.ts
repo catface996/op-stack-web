@@ -1860,9 +1860,9 @@ export interface ExecutionEvent {
   type: string | null;
   /** Run ID (only present in 'started' event, used for cancellation) */
   runId?: string;
-  /** Agent name (may be null) */
+  /** Agent name (may be null) - legacy field */
   agentName: string | null;
-  /** Agent role (may be null) */
+  /** Agent role (may be null) - legacy field */
   agentRole: string | null;
   /** Event content/message text */
   content: string | null;
@@ -1870,6 +1870,22 @@ export interface ExecutionEvent {
   timestamp: string;
   /** Additional metadata (may be null) */
   metadata: Record<string, unknown> | null;
+
+  // ---- SSE stream agent identification fields (llm_stream events) ----
+  /** Whether this is from Global Supervisor */
+  _is_global_supervisor?: boolean;
+  /** Team name (for team supervisor or worker) */
+  _team_name?: string;
+  /** Whether this is from Team Supervisor */
+  _is_team_supervisor?: boolean;
+  /** Worker name (for worker agents) */
+  _worker_name?: string;
+  /** Run ID in snake_case format */
+  run_id?: string;
+  /** Result for execution_completed event */
+  result?: string;
+  /** Statistics for execution_completed event */
+  statistics?: Record<string, unknown>;
 }
 
 /**
