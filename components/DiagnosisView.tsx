@@ -20,24 +20,30 @@ import type { Agent, Team, TopologyGroup, TopologyNode, TopologyLink, LogMessage
 
 /**
  * Extract agent identifier from an ExecutionEvent
- * Priority:
- * 1. Use SSE stream fields (_is_global_supervisor, _team_name, _is_team_supervisor, _worker_name)
- * 2. Parse from content (contains [Agent] prefix)
- * 3. Fallback to 'System'
+ *
+ * SSE stream agent identification logic:
+ * 1. _is_global_supervisor: true → Global Supervisor bubble
+ * 2. _is_team_supervisor: true → Team Supervisor bubble (named by _team_name)
+ * 3. Otherwise (has _worker_name) → Worker bubble (named by _worker_name)
+ *
+ * Fallback: Parse from content [Agent] prefix or return 'System'
  */
 function getAgentIdentifier(event: ExecutionEvent): { id: string; name: string } {
-  // Priority 1: Use SSE stream agent identification fields (most reliable for llm_stream events)
+  // Priority 1: Use SSE stream agent identification fields
+  // Case 1: Global Supervisor
   if (event._is_global_supervisor) {
     return { id: 'global-supervisor', name: 'Global Supervisor' };
   }
 
-  if (event._team_name) {
-    if (event._is_team_supervisor) {
-      return { id: `team-supervisor-${event._team_name}`, name: `${event._team_name} Supervisor` };
-    }
-    if (event._worker_name) {
-      return { id: `worker-${event._team_name}-${event._worker_name}`, name: event._worker_name };
-    }
+  // Case 2: Team Supervisor (has _team_name and _is_team_supervisor is true)
+  if (event._is_team_supervisor && event._team_name) {
+    return { id: `team-supervisor-${event._team_name}`, name: `${event._team_name} Supervisor` };
+  }
+
+  // Case 3: Worker (not global supervisor, not team supervisor, has _worker_name)
+  if (event._worker_name) {
+    const teamName = event._team_name || 'unknown';
+    return { id: `worker-${teamName}-${event._worker_name}`, name: event._worker_name };
   }
 
   // Priority 2: Parse from content (handles events with [Agent] prefix in content)
