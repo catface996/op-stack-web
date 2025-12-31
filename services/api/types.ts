@@ -1773,6 +1773,8 @@ export type AgentTemplateListResponse = ApiResponse<AgentTemplateDTO[]>;
 export interface HierarchicalAgentDTO {
   /** Agent ID */
   id: number;
+  /** Agent bound ID (binding relationship ID, used to match SSE events) */
+  boundId?: number;
   /** Agent name */
   name: string;
   /** Agent role (GLOBAL_SUPERVISOR, TEAM_SUPERVISOR, WORKER, SCOUTER) */
@@ -1948,3 +1950,192 @@ export type ExecutionEventType =
   | 'output'
   | 'error'
   | 'unknown';
+
+// ============================================================================
+// Executor SSE Event Types (Feature: 016-diagnosis-sse-refactor)
+// New structured event format from backend 042-refactor-executor-integration
+// ============================================================================
+
+/**
+ * Agent type in hierarchy
+ * Determines display format in UI
+ */
+export type AgentType = 'global_supervisor' | 'team_supervisor' | 'worker';
+
+/**
+ * Event category for SSE events
+ */
+export type EventCategory = 'lifecycle' | 'llm' | 'dispatch' | 'system';
+
+/**
+ * Event source - Agent identification within an event
+ * The agent_id is the binding relationship ID (agent_bound.id), NOT the Agent table PK
+ */
+export interface EventSource {
+  /** Binding relationship ID (agent_bound.id) - NOT agent table PK */
+  agent_id: string;
+  /** Agent type in hierarchy */
+  agent_type: AgentType;
+  /** Display name for the agent */
+  agent_name: string;
+  /** Team name (null for global_supervisor) */
+  team_name: string | null;
+}
+
+/**
+ * Event type - category and action pair
+ */
+export interface EventType {
+  /** Event category */
+  category: EventCategory;
+  /** Action within category */
+  action: string;
+}
+
+// ---- Event Data Types ----
+
+/** Lifecycle started event data */
+export interface LifecycleStartedData {
+  // Empty for started event
+}
+
+/** Lifecycle completed event data */
+export interface LifecycleCompletedData {
+  summary: string;
+}
+
+/** Lifecycle failed event data */
+export interface LifecycleFailedData {
+  error: string;
+}
+
+/** Lifecycle cancelled event data */
+export interface LifecycleCancelledData {
+  // Empty for cancelled event
+}
+
+/** LLM stream event data */
+export interface LlmStreamData {
+  content: string;
+}
+
+/** LLM reasoning event data */
+export interface LlmReasoningData {
+  thought: string;
+}
+
+/** LLM tool call event data */
+export interface LlmToolCallData {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+/** LLM tool result event data */
+export interface LlmToolResultData {
+  tool: string;
+  result: unknown;
+}
+
+/** Dispatch team event data */
+export interface DispatchTeamData {
+  team_name: string;
+  task: string;
+}
+
+/** Dispatch worker event data */
+export interface DispatchWorkerData {
+  worker_name: string;
+  task: string;
+}
+
+/** System topology event data */
+export interface SystemTopologyData {
+  hierarchy: Record<string, unknown>;
+}
+
+/** System warning event data */
+export interface SystemWarningData {
+  message: string;
+}
+
+/** System error event data */
+export interface SystemErrorData {
+  message: string;
+  code: string;
+}
+
+/**
+ * Union type for all event data payloads
+ */
+export type EventData =
+  | LifecycleStartedData
+  | LifecycleCompletedData
+  | LifecycleFailedData
+  | LifecycleCancelledData
+  | LlmStreamData
+  | LlmReasoningData
+  | LlmToolCallData
+  | LlmToolResultData
+  | DispatchTeamData
+  | DispatchWorkerData
+  | SystemTopologyData
+  | SystemWarningData
+  | SystemErrorData;
+
+/**
+ * ExecutorEvent - Root SSE event payload from backend
+ * New structured format from 042-refactor-executor-integration
+ */
+export interface ExecutorEvent {
+  /** Unique execution run identifier */
+  run_id: string;
+  /** Event timestamp (ISO 8601) */
+  timestamp: string;
+  /** Sequence number for ordering events */
+  sequence: number;
+  /** Agent source information (null for lifecycle.started) */
+  source: EventSource | null;
+  /** Event type (category + action) */
+  event: EventType;
+  /** Event-specific data payload */
+  data: EventData;
+}
+
+/**
+ * Tool call info for LogMessage
+ */
+export interface ToolCallInfo {
+  tool: string;
+  args: Record<string, unknown>;
+  result?: unknown;
+}
+
+/**
+ * LogMessage - Frontend representation of a chat bubble
+ * Updated for new SSE event format
+ */
+export interface LogMessage {
+  /** Unique message ID */
+  id: string;
+  /** Timestamp (Unix ms) */
+  timestamp: number;
+  /** Agent identifier (for grouping) */
+  fromAgentId: string;
+  /** Agent display name */
+  fromAgentName: string;
+  /** Main content text */
+  content: string;
+  /** Message type for styling */
+  type: LogMessageType;
+  /** Whether content is still streaming */
+  isStreaming: boolean;
+  /** Collapsible reasoning content */
+  reasoning?: string;
+  /** Tool calls within this message */
+  toolCalls?: ToolCallInfo[];
+}
+
+/**
+ * Log message type for styling
+ */
+export type LogMessageType = 'thought' | 'instruction' | 'report' | 'system';

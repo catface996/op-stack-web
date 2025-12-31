@@ -168,8 +168,13 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
   const onDeleteLinkRef = useRef(onDeleteLink);
   const onNavigateToSubgraphRef = useRef(onNavigateToSubgraph);
 
+  // Refs for execution active state (used in D3 rendering)
+  const activeNodeIdRef = useRef(activeNodeId);
+  const activeNodeNameRef = useRef(activeNodeName);
+  activeNodeIdRef.current = activeNodeId;
+  activeNodeNameRef.current = activeNodeName;
+
   // Fetch topology data from API when resourceId is provided
-  console.log('[TopologyGraph] Rendering with resourceId:', resourceId);
 
   const {
     topology: apiTopology,
@@ -179,7 +184,6 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
     refetch,
   } = useTopology(resourceId ?? null, { autoFetch: !!resourceId });
 
-  console.log('[TopologyGraph] useTopology result:', { apiTopology, apiLoading, apiError });
 
   // Use API data or static data
   const data: Topology | null = resourceId && apiTopology
@@ -306,74 +310,56 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
   const handleLinkDoubleClickRef = useRef(handleLinkDoubleClick);
   handleLinkDoubleClickRef.current = handleLinkDoubleClick;
 
-  // 高亮活跃节点
+  // 高亮活跃节点和执行中的活动节点（合并为一个 useEffect 避免冲突）
   useEffect(() => {
     if (!nodeSelectionRef.current) return;
 
-    nodeSelectionRef.current.select("rect.node-rect")
-      .attr("stroke-width", (d: any) => activeNodeIds.has(d.data?.id || d.id) ? 3.5 : (d.data?.isShadow || d.isShadow ? 1.5 : 2))
-      .attr("filter", (d: any) => {
-        const nodeData = d.data || d;
-        if (activeNodeIds.has(nodeData.id)) {
-          const color = getTypeColor(nodeData.type, nodeData.isShadow);
-          return `drop-shadow(0 0 12px ${hexToRgba(color, 0.8)})`;
-        }
-        return "none";
-      })
-      .attr("stroke", (d: any) => {
-        const nodeData = d.data || d;
-        // 活跃节点也使用自身颜色，只是更亮/更醒目
-        return getTypeColor(nodeData.type, nodeData.isShadow);
-      });
-
-    // 添加/移除脉冲动画类
-    nodeSelectionRef.current.classed("node-active", (d: any) => activeNodeIds.has(d.data?.id || d.id));
-  }, [activeNodeIds]);
-
-  // 高亮当前活动节点（执行过程中）
-  useEffect(() => {
-    if (!nodeSelectionRef.current) return;
-
-    // Check if a node matches activeNodeId or activeNodeName
-    const isNodeActive = (d: any) => {
+    // Check if a node matches activeNodeId or activeNodeName (execution active)
+    const isExecutionActive = (d: any) => {
       const nodeData = d.data || d;
       // Match by numeric ID (parse string ID to number if needed)
       if (activeNodeId != null) {
         const nodeIdNum = typeof nodeData.id === 'string' ? parseInt(nodeData.id, 10) : nodeData.id;
         if (nodeIdNum === activeNodeId) return true;
       }
-      // Match by name (label)
-      if (activeNodeName && nodeData.label === activeNodeName) return true;
+      // Match by name (label or name)
+      if (activeNodeName) {
+        if (nodeData.label === activeNodeName) return true;
+        if (nodeData.name === activeNodeName) return true;
+      }
       return false;
     };
 
-    // Apply execution active highlighting
-    nodeSelectionRef.current.select("rect.node-rect")
-      .attr("stroke-width", (d: any) => {
-        if (isNodeActive(d)) return 4;
-        if (activeNodeIds.has(d.data?.id || d.id)) return 3.5;
-        return (d.data?.isShadow || d.isShadow ? 1.5 : 2);
-      })
-      .attr("filter", (d: any) => {
-        const nodeData = d.data || d;
-        if (isNodeActive(d)) {
-          // Cyan glow for execution active node
-          return `drop-shadow(0 0 20px rgba(34, 211, 238, 0.9)) drop-shadow(0 0 40px rgba(34, 211, 238, 0.5))`;
-        }
-        if (activeNodeIds.has(nodeData.id)) {
-          const color = getTypeColor(nodeData.type, nodeData.isShadow);
-          return `drop-shadow(0 0 12px ${hexToRgba(color, 0.8)})`;
-        }
-        return "none";
-      })
-      .attr("stroke", (d: any) => {
-        if (isNodeActive(d)) return "#22d3ee"; // Cyan for execution active
-        const nodeData = d.data || d;
-        return getTypeColor(nodeData.type, nodeData.isShadow);
-      });
+    // Apply highlighting (execution active takes precedence over activeNodeIds)
+    // Use each() to iterate and apply styles directly to ensure they take effect
+    nodeSelectionRef.current.each(function(d: any) {
+      const nodeGroup = d3.select(this);
+      const rect = nodeGroup.select("rect.node-rect");
+      const nodeData = d.data || d;
+      const isActive = isExecutionActive(d);
 
-    // Add/remove execution active animation class
-    nodeSelectionRef.current.classed("node-execution-active", (d: any) => isNodeActive(d));
+      if (isActive) {
+        rect
+          .attr("stroke", "#22d3ee")
+          .attr("stroke-width", 4)
+          .attr("filter", "drop-shadow(0 0 20px rgba(34, 211, 238, 0.9)) drop-shadow(0 0 40px rgba(34, 211, 238, 0.5))");
+      } else if (activeNodeIds.has(nodeData.id)) {
+        const color = getTypeColor(nodeData.type, nodeData.isShadow);
+        rect
+          .attr("stroke", color)
+          .attr("stroke-width", 3.5)
+          .attr("filter", `drop-shadow(0 0 12px ${hexToRgba(color, 0.8)})`);
+      } else {
+        rect
+          .attr("stroke", nodeData.isOrphan ? "#64748b" : getTypeColor(nodeData.type, nodeData.isShadow))
+          .attr("stroke-width", nodeData.isShadow ? 1.5 : 2)
+          .attr("filter", nodeData.isShadow ? "none" : "url(#node-shadow)");
+      }
+    });
+
+    // Add/remove animation classes
+    nodeSelectionRef.current.classed("node-active", (d: any) => activeNodeIds.has(d.data?.id || d.id));
+    nodeSelectionRef.current.classed("node-execution-active", (d: any) => isExecutionActive(d));
   }, [activeNodeId, activeNodeName, activeNodeIds]);
 
   // 高亮链接模式中的源端口
@@ -1600,16 +1586,34 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         return "#0f172a";
       })
       .attr("stroke", (d: any) => {
+        // Check if this node is execution active
+        const isExecActive = (activeNodeNameRef.current && d.data.label === activeNodeNameRef.current) ||
+          (activeNodeIdRef.current != null && d.data.id === activeNodeIdRef.current);
+        if (isExecActive) return "#22d3ee";  // Cyan for execution active
         if (d.data.isOrphan) return "#64748b";
         return getTypeColor(d.data.type, d.data.isShadow);
       })
-      .attr("stroke-width", (d: any) => d.data.isShadow ? 1.5 : 2)
+      .attr("stroke-width", (d: any) => {
+        // Check if this node is execution active
+        const isExecActive = (activeNodeNameRef.current && d.data.label === activeNodeNameRef.current) ||
+          (activeNodeIdRef.current != null && d.data.id === activeNodeIdRef.current);
+        if (isExecActive) return 4;
+        return d.data.isShadow ? 1.5 : 2;
+      })
       .attr("stroke-dasharray", (d: any) => {
         if (d.data.isShadow) return "5,5";
         if (d.data.isOrphan) return "4,2";
         return "none";
       })
-      .attr("filter", (d: any) => d.data.isShadow ? "none" : "url(#node-shadow)")
+      .attr("filter", (d: any) => {
+        // Check if this node is execution active
+        const isExecActive = (activeNodeNameRef.current && d.data.label === activeNodeNameRef.current) ||
+          (activeNodeIdRef.current != null && d.data.id === activeNodeIdRef.current);
+        if (isExecActive) {
+          return `drop-shadow(0 0 20px rgba(34, 211, 238, 0.9)) drop-shadow(0 0 40px rgba(34, 211, 238, 0.5))`;
+        }
+        return d.data.isShadow ? "none" : "url(#node-shadow)";
+      })
       .attr("class", "node-rect transition-all duration-300");
 
     // 添加顶部高光（立体感）

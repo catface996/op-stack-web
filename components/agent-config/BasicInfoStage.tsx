@@ -223,12 +223,12 @@ export const BasicInfoStage: React.FC<BasicInfoStageProps> = ({
             >
               <option value="">Select a model</option>
               {models.map((model) => (
-                <option key={model.id} value={model.modelId}>
-                  {model.name} ({model.modelId})
+                <option key={model.id} value={model.model_id}>
+                  {model.name} ({model.model_id})
                 </option>
               ))}
               {/* Show current model if not in list */}
-              {formData.model && !models.some(m => m.modelId === formData.model) && (
+              {formData.model && !models.some(m => m.model_id === formData.model) && (
                 <option value={formData.model}>
                   {formData.model} (current)
                 </option>

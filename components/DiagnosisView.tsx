@@ -5,6 +5,7 @@
  * Extracted as separate component to prevent unnecessary re-renders of API panels
  * Feature: Diagnosis Page Integration
  * Feature: Multi-Agent Execution Integration
+ * Updated: 016-diagnosis-sse-refactor - New structured SSE event format
  */
 
 import React, { useMemo, useCallback, useState } from 'react';
@@ -14,89 +15,163 @@ import TopologyGraph from './TopologyGraph';
 import AgentHierarchy from './AgentHierarchy';
 import ApiAgentHierarchy from './ApiAgentHierarchy';
 import LogStream from './LogStream';
-import { useHierarchicalTeam, useExecution, parseAgentInfo, getEventType } from '../services/hooks';
-import type { ExecutionEvent } from '../services/api/types';
-import type { Agent, Team, TopologyGroup, TopologyNode, TopologyLink, LogMessage } from '../types';
+import { useHierarchicalTeam, useExecution } from '../services/hooks';
+import type { ExecutorEvent, LlmStreamData, LlmReasoningData, LlmToolCallData, LlmToolResultData } from '../services/api/types';
+import type { Agent, Team, TopologyGroup, TopologyNode, TopologyLink, LogMessage, LogToolCallInfo } from '../types';
 
 /**
- * Extract agent identifier from an ExecutionEvent
+ * Extract agent identifier from an ExecutorEvent
  *
- * SSE stream agent identification logic:
- * 1. _is_global_supervisor: true → Global Supervisor bubble
- * 2. _is_team_supervisor: true → Team Supervisor bubble (named by _team_name)
- * 3. Otherwise (has _worker_name) → Worker bubble (named by _worker_name)
+ * New SSE event format (016-diagnosis-sse-refactor):
+ * Uses source.agent_type field: 'global_supervisor', 'team_supervisor', 'worker'
  *
- * Fallback: Parse from content [Agent] prefix or return 'System'
+ * Display format per FR-002, FR-003, FR-004:
+ * - global_supervisor → "Global Supervisor"
+ * - team_supervisor → "[team_name] Supervisor"
+ * - worker → source.agent_name
+ *
+ * Fallback: Return 'System' if source is missing (FR-010 edge case handling)
  */
-function getAgentIdentifier(event: ExecutionEvent): { id: string; name: string } {
-  // Priority 1: Use SSE stream agent identification fields
-  // Case 1: Global Supervisor
-  if (event._is_global_supervisor) {
-    return { id: 'global-supervisor', name: 'Global Supervisor' };
-  }
+function getAgentIdentifier(event: ExecutorEvent): { id: string; name: string } {
+  const { source } = event;
 
-  // Case 2: Team Supervisor (has _team_name and _is_team_supervisor is true)
-  if (event._is_team_supervisor && event._team_name) {
-    return { id: `team-supervisor-${event._team_name}`, name: `${event._team_name} Supervisor` };
-  }
-
-  // Case 3: Worker (not global supervisor, not team supervisor, has _worker_name)
-  if (event._worker_name) {
-    const teamName = event._team_name || 'unknown';
-    return { id: `worker-${teamName}-${event._worker_name}`, name: event._worker_name };
-  }
-
-  // Priority 2: Parse from content (handles events with [Agent] prefix in content)
-  const agentInfo = parseAgentInfo(event.content);
-
-  if (agentInfo) {
-    if (agentInfo.role === 'global_supervisor') {
-      return { id: 'global-supervisor', name: agentInfo.name || 'Global Supervisor' };
-    } else if (agentInfo.role === 'team_supervisor') {
-      return { id: `team-supervisor-${agentInfo.team}`, name: `${agentInfo.team} Supervisor` };
-    } else if (agentInfo.role === 'worker') {
-      return { id: `worker-${agentInfo.team}-${agentInfo.name}`, name: agentInfo.name || 'Worker' };
+  // Edge case: source is null (e.g., lifecycle.started event)
+  if (!source) {
+    // Log warning for non-lifecycle events without source
+    if (event.event.category !== 'lifecycle' || event.event.action !== 'started') {
+      console.warn('[DiagnosisView] Event missing source object:', event);
     }
+    return { id: 'system', name: 'System' };
   }
 
-  // Fallback to agentName if available (legacy)
-  if (event.agentName) {
-    return { id: event.agentName.toLowerCase().replace(/\s+/g, '-'), name: event.agentName };
-  }
+  // FR-002: Identify agents using source.agent_type
+  switch (source.agent_type) {
+    case 'global_supervisor':
+      // FR-003: Display agent name from source.agent_name
+      return { id: 'global-supervisor', name: source.agent_name || 'Global Supervisor' };
 
-  return { id: 'system', name: 'System' };
+    case 'team_supervisor':
+      // FR-004: Display team context from source.team_name
+      if (source.team_name) {
+        return {
+          id: `team-supervisor-${source.team_name}`,
+          name: `${source.team_name} Supervisor`
+        };
+      }
+      return { id: `team-supervisor-${source.agent_id}`, name: source.agent_name };
+
+    case 'worker':
+      // FR-003: Display agent_name for workers
+      const teamName = source.team_name || 'unknown';
+      return {
+        id: `worker-${teamName}-${source.agent_name}`,
+        name: source.agent_name
+      };
+
+    default:
+      // Edge case: Unrecognized agent_type - display with agent_name only
+      console.warn('[DiagnosisView] Unrecognized agent_type:', source.agent_type);
+      return { id: `unknown-${source.agent_id}`, name: source.agent_name || 'Unknown' };
+  }
 }
 
 /**
- * Get log message type from event
+ * Get log message type from ExecutorEvent
+ * Maps event category/action to visual styling type
  */
-function getLogType(event: ExecutionEvent): LogMessage['type'] {
-  const eventType = getEventType(event.content, event.type);
+function getLogType(event: ExecutorEvent): LogMessage['type'] {
+  const { category, action } = event.event;
+  const eventKey = `${category}.${action}`;
 
-  if (eventType === 'thinking' || eventType === 'agent_thinking') {
-    return 'thought';
-  } else if (eventType === 'task_start' || eventType === 'coordination' || eventType === 'team_selection') {
-    return 'instruction';
-  } else if (eventType === 'output' || eventType === 'work_start') {
-    return 'report';
-  } else if (eventType === 'error') {
-    return 'system';
+  // Map event types to log message types for styling
+  switch (eventKey) {
+    // LLM events
+    case 'llm.reasoning':
+      return 'thought';
+    case 'llm.stream':
+    case 'llm.tool_result':
+      return 'report';
+    case 'llm.tool_call':
+      return 'instruction';
+
+    // Lifecycle events (US2) - will be styled as system messages
+    case 'lifecycle.started':
+    case 'lifecycle.completed':
+    case 'lifecycle.failed':
+    case 'lifecycle.cancelled':
+      return 'system';
+
+    // Dispatch events (US3) - styled as instructions
+    case 'dispatch.team':
+    case 'dispatch.worker':
+      return 'instruction';
+
+    // System events
+    case 'system.warning':
+    case 'system.error':
+    case 'system.topology':
+      return 'system';
+
+    default:
+      return 'report';
   }
-  return 'system';
 }
 
 /**
- * Aggregate consecutive events from the same agent into single log messages
- * This ensures all output from one agent appears in a single chat bubble
- *
- * Note: SSE events are token-level streaming where:
- * - Agent prefix like "[Global Supervisor]" comes as one event
- * - Following content like " THINKING: I" comes as separate events WITHOUT prefix
- *
- * Solution: Track "last known agent" and use it when current event can't identify agent
- * (i.e., when getAgentIdentifier returns 'system' as fallback)
+ * Extract content from event based on category/action
+ * Returns the appropriate text content from event.data
  */
-function aggregateEventsToLogs(events: ExecutionEvent[], isExecuting: boolean): LogMessage[] {
+function getEventContent(event: ExecutorEvent): string {
+  const { category, action } = event.event;
+  const eventKey = `${category}.${action}`;
+
+  switch (eventKey) {
+    case 'llm.stream':
+      return (event.data as LlmStreamData).content || '';
+    case 'llm.reasoning':
+      return (event.data as LlmReasoningData).thought || '';
+    case 'llm.tool_call': {
+      const toolData = event.data as LlmToolCallData;
+      return `🔧 Calling tool: ${toolData.tool}`;
+    }
+    case 'llm.tool_result': {
+      const resultData = event.data as LlmToolResultData;
+      return `✅ Tool result: ${resultData.tool}`;
+    }
+    case 'lifecycle.started':
+      return '🚀 Execution started';
+    case 'lifecycle.completed':
+      return `✅ Execution completed: ${(event.data as { summary?: string }).summary || ''}`;
+    case 'lifecycle.failed':
+      return `❌ Execution failed: ${(event.data as { error?: string }).error || ''}`;
+    case 'lifecycle.cancelled':
+      return '⏹️ Execution cancelled';
+    case 'dispatch.team':
+      return `📋 Dispatching to team: ${(event.data as { team_name?: string; task?: string }).team_name} - ${(event.data as { task?: string }).task || ''}`;
+    case 'dispatch.worker':
+      return `👷 Dispatching to worker: ${(event.data as { worker_name?: string; task?: string }).worker_name} - ${(event.data as { task?: string }).task || ''}`;
+    case 'system.warning':
+      return `⚠️ ${(event.data as { message?: string }).message || ''}`;
+    case 'system.error':
+      return `❌ ${(event.data as { message?: string }).message || ''}`;
+    default:
+      return '';
+  }
+}
+
+/**
+ * Aggregate consecutive ExecutorEvents from the same agent into single LogMessages
+ *
+ * FR-005: Aggregate llm.stream events from the same agent into a single chat bubble
+ * FR-007a: Accumulate llm.reasoning events into the reasoning field
+ *
+ * Logic:
+ * - Group consecutive events from the same agent
+ * - llm.stream content appends to main content
+ * - llm.reasoning thought appends to reasoning field
+ * - llm.tool_call/tool_result tracked in toolCalls array
+ */
+function aggregateEventsToLogs(events: ExecutorEvent[], isExecuting: boolean): LogMessage[] {
   if (events.length === 0) return [];
 
   const logs: LogMessage[] = [];
@@ -107,22 +182,22 @@ function aggregateEventsToLogs(events: ExecutionEvent[], isExecuting: boolean): 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
     let agent = getAgentIdentifier(event);
-    const content = event.content || '';
+    const eventKey = `${event.event.category}.${event.event.action}`;
 
     // If agent is 'system' (fallback) and we have a last known agent, use that instead
-    // This handles SSE token streaming where "[Global Supervisor]" and "THINKING:" are separate events
-    if (agent.id === 'system' && lastKnownAgent) {
+    // This handles events where source is null but should continue with previous agent
+    if (agent.id === 'system' && lastKnownAgent && event.event.category !== 'lifecycle') {
       agent = lastKnownAgent;
     } else if (agent.id !== 'system') {
       // Update last known agent when we successfully identify one
       lastKnownAgent = agent;
     }
 
-    // If same agent as current log, append content directly (no newline - SSE is token-level)
-    if (currentAgentId === agent.id && currentLog) {
-      currentLog.content += content;
-    } else {
-      // Different agent - finalize current log and start new one
+    // Check if we should start a new log message
+    const shouldStartNewLog = currentAgentId !== agent.id || !currentLog;
+
+    if (shouldStartNewLog) {
+      // Finalize current log
       if (currentLog) {
         currentLog.isStreaming = false;
         logs.push(currentLog);
@@ -134,16 +209,70 @@ function aggregateEventsToLogs(events: ExecutionEvent[], isExecuting: boolean): 
         timestamp: new Date(event.timestamp).getTime(),
         fromAgentId: agent.id,
         fromAgentName: agent.name,
-        content: content,
+        content: '',
         type: getLogType(event),
         isStreaming: false,
+        reasoning: undefined,
+        toolCalls: undefined,
       };
+    }
+
+    // Handle different event types
+    if (currentLog) {
+      switch (eventKey) {
+        case 'llm.stream': {
+          // FR-005: Aggregate stream content
+          const streamData = event.data as LlmStreamData;
+          currentLog.content += streamData.content || '';
+          break;
+        }
+
+        case 'llm.reasoning': {
+          // FR-007a: Accumulate reasoning into separate field
+          const reasoningData = event.data as LlmReasoningData;
+          if (reasoningData.thought) {
+            currentLog.reasoning = (currentLog.reasoning || '') + reasoningData.thought;
+          }
+          break;
+        }
+
+        case 'llm.tool_call': {
+          // Track tool calls
+          const toolData = event.data as LlmToolCallData;
+          if (!currentLog.toolCalls) currentLog.toolCalls = [];
+          currentLog.toolCalls.push({
+            tool: toolData.tool,
+            args: toolData.args,
+          });
+          break;
+        }
+
+        case 'llm.tool_result': {
+          // Match tool result to existing tool call
+          const resultData = event.data as LlmToolResultData;
+          if (currentLog.toolCalls) {
+            const toolCall = currentLog.toolCalls.find(tc => tc.tool === resultData.tool && tc.result === undefined);
+            if (toolCall) {
+              toolCall.result = resultData.result;
+            }
+          }
+          break;
+        }
+
+        // Lifecycle and other events - use formatted content
+        default: {
+          const content = getEventContent(event);
+          if (content) {
+            currentLog.content += content;
+          }
+          break;
+        }
+      }
     }
   }
 
   // Add the last log
   if (currentLog) {
-    // Mark as streaming if execution is still in progress and this is the last message
     currentLog.isStreaming = isExecuting;
     logs.push(currentLog);
   }
@@ -182,8 +311,9 @@ const LeftPanel = React.memo<{
   setFocusTarget: (target: { agentId: string; ts: number } | null) => void;
   width: number;
   setIsResizing: (val: boolean) => void;
+  activeAgentId?: number | null;
   activeAgentName?: string | null;
-}>(({ topologyId, globalAgent, activeTeams, diagnosisScope, setDiagnosisScope, setFocusTarget, width, setIsResizing, activeAgentName }) => {
+}>(({ topologyId, globalAgent, activeTeams, diagnosisScope, setDiagnosisScope, setFocusTarget, width, setIsResizing, activeAgentId, activeAgentName }) => {
   // Fetch hierarchical team data - only re-fetches when topologyId changes
   const {
     team: hierarchicalTeam,
@@ -208,6 +338,7 @@ const LeftPanel = React.memo<{
             team={hierarchicalTeam}
             loading={teamLoading}
             error={teamError}
+            activeAgentId={activeAgentId}
             activeAgentName={activeAgentName}
             onAgentClick={(agentId) => setFocusTarget({ agentId: String(agentId), ts: Date.now() })}
           />
@@ -293,7 +424,7 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({
   );
 
   // User query input state
-  const [userQuery, setUserQuery] = useState('Analyze system state and health status.');
+  const [userQuery, setUserQuery] = useState('');
 
   // Multi-agent execution with SSE streaming
   const {
@@ -321,34 +452,39 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({
     return aggregateEventsToLogs(executionEvents, isExecuting);
   }, [executionEvents, isExecuting]);
 
-  // Track currently active agent from the last log message (only during execution)
+  // Track currently active agent from the last execution event (only during execution)
+  // Uses agentId (boundId) from SSE events for accurate matching
   const activeAgentInfo = useMemo(() => {
-    if (!isExecuting || logs.length === 0) {
-      return { agentName: null, nodeName: null };
+    if (!isExecuting || executionEvents.length === 0) {
+      return { agentId: null, agentName: null, nodeName: null };
     }
 
-    const lastLog = logs[logs.length - 1];
-    const agentName = lastLog.fromAgentName;
-
-    // Extract node/team name from agent info
-    // e.g., "Firestone Supervisor" -> "Firestone", "WorkerName" in team "Firestone" -> "Firestone"
-    let nodeName: string | null = null;
-
-    // Check if it's a team supervisor (e.g., "TeamName Supervisor")
-    if (agentName?.endsWith(' Supervisor') && agentName !== 'Global Supervisor') {
-      nodeName = agentName.replace(' Supervisor', '');
-    } else if (lastLog.fromAgentId?.startsWith('team-supervisor-')) {
-      nodeName = lastLog.fromAgentId.replace('team-supervisor-', '');
-    } else if (lastLog.fromAgentId?.startsWith('worker-')) {
-      // worker-TeamName-WorkerName -> extract TeamName
-      const parts = lastLog.fromAgentId.split('-');
-      if (parts.length >= 2) {
-        nodeName = parts[1]; // TeamName
+    // Find the last event with a valid source
+    let lastEventWithSource = null;
+    for (let i = executionEvents.length - 1; i >= 0; i--) {
+      if (executionEvents[i].source) {
+        lastEventWithSource = executionEvents[i];
+        break;
       }
     }
 
-    return { agentName, nodeName };
-  }, [isExecuting, logs]);
+    if (!lastEventWithSource || !lastEventWithSource.source) {
+      return { agentId: null, agentName: null, nodeName: null };
+    }
+
+    const source = lastEventWithSource.source;
+    // agent_id from SSE is the boundId (agent bound relationship id)
+    // Parse as integer if it's a numeric string, otherwise keep as null
+    let agentId: number | null = null;
+    if (source.agent_id) {
+      const parsed = parseInt(source.agent_id, 10);
+      agentId = isNaN(parsed) ? null : parsed;
+    }
+    const agentName = source.agent_name || null;
+    const nodeName = source.team_name || null;
+
+    return { agentId, agentName, nodeName };
+  }, [isExecuting, executionEvents]);
 
   // Handle execute button click
   const handleExecuteDiagnosis = useCallback(() => {
@@ -386,6 +522,7 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({
         setFocusTarget={setFocusTarget}
         width={leftSidebarWidth}
         setIsResizing={setIsResizingLeft}
+        activeAgentId={activeAgentInfo.agentId}
         activeAgentName={activeAgentInfo.agentName}
       />
 

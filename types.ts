@@ -46,6 +46,16 @@ export interface Team {
   members: Agent[];
 }
 
+/**
+ * Tool call information within a log message
+ * Feature: 016-diagnosis-sse-refactor
+ */
+export interface LogToolCallInfo {
+  tool: string;
+  args: Record<string, unknown>;
+  result?: unknown;
+}
+
 export interface LogMessage {
   id: string;
   timestamp: number;
@@ -55,6 +65,10 @@ export interface LogMessage {
   content: string;
   type: 'instruction' | 'report' | 'thought' | 'system' | 'discovery';
   isStreaming?: boolean;
+  /** Collapsible reasoning content (Feature: 016-diagnosis-sse-refactor) */
+  reasoning?: string;
+  /** Tool calls within this message (Feature: 016-diagnosis-sse-refactor) */
+  toolCalls?: LogToolCallInfo[];
 }
 
 export type TopologyLayer =

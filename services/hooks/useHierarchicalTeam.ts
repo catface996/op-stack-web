@@ -33,6 +33,7 @@ function toHierarchicalAgentDTO(agent: HierarchyAgentDTO | null): HierarchicalAg
   if (!agent) return null;
   return {
     id: agent.id,
+    boundId: agent.boundId,  // Important: boundId is used for SSE event matching
     name: agent.name,
     role: agent.role as HierarchicalAgentDTO['role'],
     hierarchyLevel: agent.hierarchyLevel as HierarchicalAgentDTO['hierarchyLevel'],

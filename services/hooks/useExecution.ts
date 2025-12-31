@@ -3,11 +3,12 @@
  *
  * Trigger multi-agent execution and receive SSE stream events
  * Feature: Multi-Agent Execution Integration
+ * Updated: 016-diagnosis-sse-refactor - New structured SSE event format
  */
 
 import { useState, useCallback, useRef } from 'react';
 import type {
-  ExecutionEvent,
+  ExecutorEvent,
   TriggerExecutionRequest,
   CancelExecutionResponse,
   ParsedAgentInfo,
@@ -69,7 +70,7 @@ export function getEventType(content: string | null, eventType: string | null): 
 
 export interface UseExecutionOptions {
   /** Callback for each event */
-  onEvent?: (event: ExecutionEvent) => void;
+  onEvent?: (event: ExecutorEvent) => void;
   /** Callback for errors */
   onError?: (error: Error) => void;
   /** Callback when execution completes */
@@ -83,22 +84,85 @@ export interface UseExecutionResult {
   cancel: () => Promise<boolean>;
   /** Whether execution is in progress */
   isExecuting: boolean;
-  /** All received events */
-  events: ExecutionEvent[];
+  /** All received events (new ExecutorEvent format) */
+  events: ExecutorEvent[];
   /** Current error (if any) */
   error: Error | null;
-  /** Current run ID (from 'started' event, used for cancellation) */
+  /** Current run ID (from 'lifecycle.started' event, used for cancellation) */
   runId: string | null;
   /** Clear events */
   clearEvents: () => void;
 }
 
 /**
+ * Backend SSE event format (actual format from backend)
+ * Different from the spec's ExecutorEvent format
+ */
+interface BackendSseEvent {
+  type: string;  // e.g., "llm.stream", "lifecycle.started"
+  runId: string;
+  agentId?: string;
+  agentName?: string;
+  agentType?: string;  // "global_supervisor", "team_supervisor", "worker"
+  teamName?: string | null;
+  content?: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+  agentRole?: string | null;
+}
+
+/**
+ * Validate that an object is a valid backend SSE event
+ */
+function isValidBackendEvent(obj: unknown): obj is BackendSseEvent {
+  if (!obj || typeof obj !== 'object') return false;
+  const event = obj as Record<string, unknown>;
+
+  // Required fields check
+  if (typeof event.type !== 'string') return false;
+  if (typeof event.timestamp !== 'string') return false;
+
+  return true;
+}
+
+/**
+ * Transform backend SSE event to ExecutorEvent format
+ * This normalizes the actual backend format to our internal format
+ */
+function transformToExecutorEvent(backend: BackendSseEvent): ExecutorEvent {
+  // Parse type like "llm.stream" into category and action
+  const [category, action] = backend.type.includes('.')
+    ? backend.type.split('.', 2)
+    : [backend.type, 'unknown'];
+
+  return {
+    run_id: backend.runId || '',
+    timestamp: backend.timestamp,
+    sequence: 0, // Backend doesn't provide sequence
+    source: backend.agentType ? {
+      agent_id: backend.agentId || '',
+      agent_type: backend.agentType as 'global_supervisor' | 'team_supervisor' | 'worker',
+      agent_name: backend.agentName || '',
+      team_name: backend.teamName || null,
+    } : null,
+    event: {
+      category: category as 'lifecycle' | 'llm' | 'dispatch' | 'system',
+      action: action,
+    },
+    data: {
+      content: backend.content || '',
+      ...backend.metadata,
+    },
+  };
+}
+
+/**
  * Hook for triggering multi-agent execution with SSE streaming
+ * Updated for new ExecutorEvent format (016-diagnosis-sse-refactor)
  */
 export function useExecution(options: UseExecutionOptions = {}): UseExecutionResult {
   const [isExecuting, setIsExecuting] = useState(false);
-  const [events, setEvents] = useState<ExecutionEvent[]>([]);
+  const [events, setEvents] = useState<ExecutorEvent[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -170,25 +234,42 @@ export function useExecution(options: UseExecutionOptions = {}): UseExecutionRes
             if (!jsonStr.trim()) continue;
 
             try {
-              const event: ExecutionEvent = JSON.parse(jsonStr);
-              console.log('[useExecution] Event:', event);
+              const parsed = JSON.parse(jsonStr);
 
-              // Capture runId from 'started' event (first event)
-              if (event.type === 'started' && event.runId) {
-                console.log('[useExecution] Run started, runId:', event.runId);
-                setRunId(event.runId);
+              // Validate backend event structure (FR-010: graceful error handling)
+              if (!isValidBackendEvent(parsed)) {
+                console.warn('[useExecution] Malformed event structure, skipping:', parsed);
+                continue;
+              }
+
+              // Transform backend format to ExecutorEvent format
+              const event: ExecutorEvent = transformToExecutorEvent(parsed);
+              const eventKey = `${event.event.category}.${event.event.action}`;
+
+              // Capture runId from first event
+              if (event.run_id && !runId) {
+                console.log('[useExecution] Run started, run_id:', event.run_id);
+                setRunId(event.run_id);
               }
 
               setEvents((prev) => [...prev, event]);
               options.onEvent?.(event);
 
-              // Check for error events
-              if (event.type === 'error') {
-                const errorMsg = event.content || 'Unknown execution error';
+              // Check for error events (system.error or lifecycle.failed)
+              if (eventKey === 'system.error' || eventKey === 'lifecycle.failed') {
+                const data = event.data as { error?: string; message?: string };
+                const errorMsg = data.error || data.message || 'Unknown execution error';
                 console.error('[useExecution] Error event:', errorMsg);
               }
+
+              // Log warning for unrecognized event categories
+              const validCategories = ['lifecycle', 'llm', 'dispatch', 'system'];
+              if (!validCategories.includes(event.event.category)) {
+                console.warn('[useExecution] Unrecognized event category:', event.event.category);
+              }
             } catch (e) {
-              console.warn('[useExecution] Failed to parse event:', jsonStr, e);
+              // FR-010: Graceful error handling - continue processing stream
+              console.warn('[useExecution] Failed to parse event JSON, skipping:', jsonStr, e);
             }
           }
         }

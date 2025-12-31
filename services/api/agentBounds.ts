@@ -67,6 +67,7 @@ export interface AgentBoundDTO {
 
 export interface HierarchyAgentDTO {
   id: number;
+  boundId?: number;  // Agent bound ID (used for SSE event matching)
   name: string;
   role: string;
   hierarchyLevel: HierarchyLevel;
