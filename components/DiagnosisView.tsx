@@ -10,7 +10,7 @@
 
 import React, { useMemo, useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Activity, Sparkles, FileSearch, Square, Play } from 'lucide-react';
+import { Activity, Sparkles, FileSearch, Square, Play, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Network, Users } from 'lucide-react';
 import TopologyGraph from './TopologyGraph';
 import AgentHierarchy from './AgentHierarchy';
 import ApiAgentHierarchy from './ApiAgentHierarchy';
@@ -325,7 +325,9 @@ const LeftPanel = React.memo<{
   setIsResizing: (val: boolean) => void;
   activeAgentId?: number | null;
   activeAgentName?: string | null;
-}>(({ topologyId, globalAgent, activeTeams, diagnosisScope, setDiagnosisScope, setFocusTarget, width, setIsResizing, activeAgentId, activeAgentName }) => {
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+}>(({ topologyId, globalAgent, activeTeams, diagnosisScope, setDiagnosisScope, setFocusTarget, width, setIsResizing, activeAgentId, activeAgentName, isCollapsed, onToggleCollapse }) => {
   // Fetch hierarchical team data - only re-fetches when topologyId changes
   const {
     team: hierarchicalTeam,
@@ -333,35 +335,71 @@ const LeftPanel = React.memo<{
     error: teamError,
   } = useHierarchicalTeam(topologyId);
 
+  // Collapsed state - show thin bar with expand button
+  if (isCollapsed) {
+    return (
+      <div className="w-10 bg-slate-900/40 border-r border-slate-800 flex flex-col items-center shrink-0">
+        <div className="h-10 flex items-center justify-center shrink-0">
+          <button
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-all"
+            title="Show hierarchy panel"
+          >
+            <PanelLeftOpen size={14} />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <span
+            className="text-[9px] text-slate-600 font-bold uppercase tracking-widest"
+            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+          >
+            Hierarchy
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <aside style={{ width }} className="bg-slate-900/20 p-2 overflow-y-auto custom-scrollbar text-xs shrink-0">
-        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4 py-2 flex justify-between items-center">
+      <aside style={{ width }} className="bg-slate-900/20 overflow-y-auto custom-scrollbar text-xs shrink-0 flex flex-col">
+        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 py-2 flex justify-between items-center shrink-0">
           <span>Hierarchy Stack</span>
-          {diagnosisScope && (
-            <button onClick={() => setDiagnosisScope(null)} className="text-cyan-400 hover:text-white transition-colors">
-              Global View
+          <div className="flex items-center gap-2">
+            {diagnosisScope && (
+              <button onClick={() => setDiagnosisScope(null)} className="text-cyan-400 hover:text-white transition-colors">
+                Global View
+              </button>
+            )}
+            <button
+              onClick={onToggleCollapse}
+              className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-all"
+              title="Hide hierarchy panel"
+            >
+              <PanelLeftClose size={14} />
             </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {/* Use API-based hierarchy when topologyId is available, otherwise use mock data */}
+          {topologyId ? (
+            <ApiAgentHierarchy
+              team={hierarchicalTeam}
+              loading={teamLoading}
+              error={teamError}
+              activeAgentId={activeAgentId}
+              activeAgentName={activeAgentName}
+              onAgentClick={(agentId) => setFocusTarget({ agentId: String(agentId), ts: Date.now() })}
+            />
+          ) : (
+            <AgentHierarchy
+              globalAgent={globalAgent}
+              teams={activeTeams}
+              activeTeamIds={new Set()}
+              onAgentClick={(agentId) => setFocusTarget({ agentId, ts: Date.now() })}
+            />
           )}
         </div>
-        {/* Use API-based hierarchy when topologyId is available, otherwise use mock data */}
-        {topologyId ? (
-          <ApiAgentHierarchy
-            team={hierarchicalTeam}
-            loading={teamLoading}
-            error={teamError}
-            activeAgentId={activeAgentId}
-            activeAgentName={activeAgentName}
-            onAgentClick={(agentId) => setFocusTarget({ agentId: String(agentId), ts: Date.now() })}
-          />
-        ) : (
-          <AgentHierarchy
-            globalAgent={globalAgent}
-            teams={activeTeams}
-            activeTeamIds={new Set()}
-            onAgentClick={(agentId) => setFocusTarget({ agentId, ts: Date.now() })}
-          />
-        )}
       </aside>
       {/* Left resize handle */}
       <div
@@ -383,7 +421,34 @@ const RightPanel = React.memo<{
   width: number;
   setIsResizing: (val: boolean) => void;
   activeNodeName?: string | null;
-}>(({ topologyId, dashboardTopology, activeNodeIds, handleCreateLink, width, setIsResizing, activeNodeName }) => {
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+}>(({ topologyId, dashboardTopology, activeNodeIds, handleCreateLink, width, setIsResizing, activeNodeName, isCollapsed, onToggleCollapse }) => {
+  // Collapsed state - show thin bar with expand button
+  if (isCollapsed) {
+    return (
+      <div className="w-10 bg-slate-900/40 border-l border-slate-800 flex flex-col items-center shrink-0">
+        <div className="h-10 flex items-center justify-center shrink-0">
+          <button
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-all"
+            title="Show topology panel"
+          >
+            <PanelRightOpen size={14} />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <span
+            className="text-[9px] text-slate-600 font-bold uppercase tracking-widest"
+            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+          >
+            Topology
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Right resize handle */}
@@ -392,8 +457,17 @@ const RightPanel = React.memo<{
         onMouseDown={() => setIsResizing(true)}
       />
       <aside style={{ width }} className="bg-slate-900/20 relative shrink-0">
-        <div className="absolute top-0 left-0 w-full h-10 border-b border-slate-800 bg-slate-900/40 z-10 flex items-center px-4 font-bold text-[10px] text-slate-400 uppercase tracking-widest">
-          Topology Monitor
+        <div className="absolute top-0 left-0 w-full h-10 border-b border-slate-800 bg-slate-900/40 z-10 flex items-center justify-between px-3">
+          <span className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">
+            Topology Monitor
+          </span>
+          <button
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-all"
+            title="Hide topology panel"
+          >
+            <PanelRightClose size={14} />
+          </button>
         </div>
         {/* Use resourceId for API-based data when topologyId is provided, otherwise use mock data */}
         <TopologyGraph
@@ -440,6 +514,10 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({
 
   // User messages state - messages sent by the user
   const [userMessages, setUserMessages] = useState<LogMessage[]>([]);
+
+  // Panel collapse states
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
+  const [isRightCollapsed, setIsRightCollapsed] = useState(false);
 
   // Multi-agent execution with SSE streaming
   const {
@@ -560,6 +638,8 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({
         setIsResizing={setIsResizingLeft}
         activeAgentId={activeAgentInfo.agentId}
         activeAgentName={activeAgentInfo.agentName}
+        isCollapsed={isLeftCollapsed}
+        onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
       />
 
       {/* Center Panel - Log Stream */}
@@ -655,6 +735,8 @@ const DiagnosisView: React.FC<DiagnosisViewProps> = ({
         width={rightSidebarWidth}
         setIsResizing={setIsResizingRight}
         activeNodeName={activeAgentInfo.nodeName}
+        isCollapsed={isRightCollapsed}
+        onToggleCollapse={() => setIsRightCollapsed(!isRightCollapsed)}
       />
     </div>
   );

@@ -39,6 +39,8 @@ function toHierarchicalAgentDTO(agent: HierarchyAgentDTO | null): HierarchicalAg
     hierarchyLevel: agent.hierarchyLevel as HierarchicalAgentDTO['hierarchyLevel'],
     specialty: agent.specialty,
     model: agent.model,
+    modelName: agent.modelName,
+    providerModelId: agent.providerModelId,
   };
 }
 

@@ -339,18 +339,18 @@ export const TopologyDetailView: React.FC<TopologyDetailViewProps> = ({
       return;
     }
 
-    console.log('[TopologyDetailView] Deleting relationship:', { id: link.relationshipId });
+    console.log('[TopologyDetailView] Deleting relationship:', { relationshipId: link.relationshipId });
 
     try {
       await topologyApi.deleteRelationship({
-        id: link.relationshipId,
+        relationshipId: link.relationshipId,
+        operatorId: 1,
       });
 
       // Refresh the graph to show the deleted link
       setGraphKey(prev => prev + 1);
     } catch (err) {
       console.error('Failed to delete relationship:', err);
-      // Could add error toast notification here
     }
   }, []);
 
@@ -1231,6 +1231,9 @@ const EditableHierarchyPanel: React.FC<EditableHierarchyPanelProps> = ({
             <Network size={14} className="text-indigo-400 shrink-0" />
             <div className="min-w-0">
               <div className="text-[11px] font-bold text-indigo-100 truncate">{team.globalSupervisor.name}</div>
+              {team.globalSupervisor.modelName && (
+                <div className="text-[9px] text-indigo-300/60 truncate">{team.globalSupervisor.modelName}</div>
+              )}
               <div className="text-[9px] text-slate-500">{team.globalSupervisor.specialty || 'Global Supervisor'}</div>
             </div>
           </div>
@@ -1269,6 +1272,9 @@ const EditableHierarchyPanel: React.FC<EditableHierarchyPanelProps> = ({
                   <Server size={12} className="text-purple-400 shrink-0" />
                   <div className="min-w-0">
                     <div className="text-[10px] font-medium text-slate-200 truncate">{nodeTeam.supervisor.name}</div>
+                    {nodeTeam.supervisor.modelName && (
+                      <div className="text-[8px] text-purple-300/50 truncate">{nodeTeam.supervisor.modelName}</div>
+                    )}
                   </div>
                 </div>
                 <button
@@ -1296,7 +1302,12 @@ const EditableHierarchyPanel: React.FC<EditableHierarchyPanelProps> = ({
                   <div key={worker.id} className="flex items-center justify-between p-1.5 bg-cyan-950/30 border border-cyan-500/20 rounded group">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Activity size={10} className="text-cyan-400 shrink-0" />
-                      <div className="text-[10px] font-medium text-slate-200 truncate">{worker.name}</div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-medium text-slate-200 truncate">{worker.name}</div>
+                        {worker.modelName && (
+                          <div className="text-[8px] text-cyan-300/50 truncate">{worker.modelName}</div>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => onUnbindWorker(worker, nodeTeam.nodeId)}

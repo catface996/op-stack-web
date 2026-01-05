@@ -1,29 +1,36 @@
 /**
  * useNodeSupervisors Hook
  *
- * Fetch team supervisors for a specific node from all topologies it belongs to
+ * Fetch team supervisors bound to a specific node
  * Feature: 013-agent-config-page
- * Updated for Feature 040: Uses unified agent-bounds API
+ * Updated for Feature 040: Uses unified agent-bounds API (query-by-entity)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { topologyApi } from '../api/topology';
-import { agentBoundsApi, type HierarchyAgentDTO } from '../api/agentBounds';
+import { getNodeAgents, type AgentBoundDTO } from '../api/agentBounds';
 
 /**
- * Supervisor with topology context
+ * Supervisor info from agent-bounds API
  */
 export interface NodeSupervisorInfo {
-  /** Supervisor agent */
-  supervisor: HierarchyAgentDTO;
-  /** Topology ID this supervisor belongs to */
+  /** Supervisor agent (converted from AgentBoundDTO) */
+  supervisor: {
+    id: number;
+    boundId: number;
+    name: string;
+    role: string;
+    hierarchyLevel: string;
+  };
+  /** Bound relationship ID */
+  boundId: number;
+  /** Display context (entity name if available) */
   topologyId: number;
-  /** Topology name for display */
+  /** Topology name for display (not available from query-by-entity, use generic label) */
   topologyName: string;
 }
 
 export interface UseNodeSupervisorsResult {
-  /** List of supervisors from all topologies */
+  /** List of supervisors bound to this node */
   supervisors: NodeSupervisorInfo[];
   /** Loading state */
   loading: boolean;
@@ -34,7 +41,8 @@ export interface UseNodeSupervisorsResult {
 }
 
 /**
- * Hook for fetching team supervisors for a specific node
+ * Hook for fetching team supervisors bound to a specific node
+ * Uses query-by-entity API which returns agents directly bound to the node
  * @param nodeId - The node ID to find supervisors for
  */
 export function useNodeSupervisors(nodeId: number | null): UseNodeSupervisorsResult {
@@ -56,53 +64,24 @@ export function useNodeSupervisors(nodeId: number | null): UseNodeSupervisorsRes
     setError(null);
 
     try {
-      // Step 1: Get all topologies that contain this node
-      const topologyResult = await topologyApi.query({
-        operatorId: 1,
-        nodeId,
-        page: 1,
-        size: 100, // Get all topologies (assuming a node won't be in more than 100)
-      });
+      // Use query-by-entity API to get supervisors directly bound to this node
+      const boundAgents = await getNodeAgents(nodeId, 'TEAM_SUPERVISOR');
 
       if (currentRequestId !== requestIdRef.current) return;
 
-      const topologies = topologyResult.content;
-
-      if (topologies.length === 0) {
-        setSupervisors([]);
-        setLoading(false);
-        return;
-      }
-
-      // Step 2: For each topology, query the hierarchy using new API
-      const supervisorInfos: NodeSupervisorInfo[] = [];
-
-      for (const topology of topologies) {
-        try {
-          // Use new unified API: agent-bounds/query-hierarchy
-          const hierarchyData = await agentBoundsApi.queryHierarchy({
-            topologyId: topology.id,
-          });
-
-          if (currentRequestId !== requestIdRef.current) return;
-
-          // Find this node's team in the hierarchical data
-          const nodeTeam = hierarchyData.teams.find(team => team.nodeId === nodeId);
-
-          if (nodeTeam && nodeTeam.supervisor) {
-            supervisorInfos.push({
-              supervisor: nodeTeam.supervisor,
-              topologyId: topology.id,
-              topologyName: hierarchyData.topologyName || topology.name,
-            });
-          }
-        } catch (err) {
-          // Continue with other topologies if one fails
-          console.warn(`Failed to fetch hierarchy for topology ${topology.id}:`, err);
-        }
-      }
-
-      if (currentRequestId !== requestIdRef.current) return;
+      // Convert AgentBoundDTO to NodeSupervisorInfo
+      const supervisorInfos: NodeSupervisorInfo[] = boundAgents.map((agent: AgentBoundDTO) => ({
+        supervisor: {
+          id: agent.agentId,
+          boundId: agent.id,
+          name: agent.agentName,
+          role: agent.agentRole,
+          hierarchyLevel: agent.hierarchyLevel,
+        },
+        boundId: agent.id,
+        topologyId: agent.entityId, // This is the node ID, not topology ID
+        topologyName: agent.entityName || 'Node Supervisor',
+      }));
 
       setSupervisors(supervisorInfos);
     } catch (err) {

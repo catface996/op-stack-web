@@ -354,7 +354,6 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
               <div>
                 <div className="text-xs text-slate-500">Resource Type</div>
                 <div className="text-sm text-white">{resource.resourceTypeName}</div>
-                <div className="text-xs text-slate-500 font-mono">{resource.resourceTypeCode}</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -709,7 +708,7 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
               disabled={agentBinding}
               className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-lg text-xs font-bold text-white transition-all"
             >
-              <Plus size={14} /> Assign Agent
+              <Plus size={14} /> Assign Worker
             </button>
           </div>
         </div>
@@ -1100,7 +1099,6 @@ const ApiResourceDetailView: React.FC<ApiResourceDetailViewProps> = ({ resourceI
               </div>
               <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">
                 {resource.resourceTypeName}
-                <span className="ml-2 text-slate-600 font-mono">({resource.resourceTypeCode})</span>
               </div>
             </div>
           </div>
@@ -1496,7 +1494,7 @@ const BindAgentModal: React.FC<BindAgentModalProps> = ({ nodeId, onBind, onClose
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-4 border-b border-slate-800">
-          <h3 className="font-bold text-white text-sm">Assign Agent</h3>
+          <h3 className="font-bold text-white text-sm">Assign Worker</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={20} /></button>
         </div>
         <div className="p-4 space-y-4">

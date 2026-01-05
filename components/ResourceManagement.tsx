@@ -421,27 +421,31 @@ const ResourceManagement: React.FC<ResourceManagementProps> = ({ onViewDetail })
                           </div>
                         </div>
 
-                        <div className="space-y-2.5 flex-1">
+                        <div className="flex-1">
                           {attributes ? (
-                            Object.entries(attributes).slice(0, 2).map(([key, value]) => (
-                              <div key={key} className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
-                                  {key.toLowerCase().includes('region') ? <Globe size={12} className="text-slate-500" /> :
-                                   key.toLowerCase().includes('replicas') ? <Box size={12} className="text-slate-500" /> :
-                                   <Zap size={12} className="text-slate-500" />}
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                              {Object.entries(attributes).slice(0, 4).map(([key, value]) => (
+                                <div key={key} className="flex items-center gap-2 min-w-0">
+                                  <div className="w-5 h-5 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
+                                    {key.toLowerCase().includes('region') ? <Globe size={10} className="text-slate-500" /> :
+                                     key.toLowerCase().includes('replicas') ? <Box size={10} className="text-slate-500" /> :
+                                     key.toLowerCase().includes('port') ? <Zap size={10} className="text-slate-500" /> :
+                                     key.toLowerCase().includes('host') || key.toLowerCase().includes('ip') ? <Server size={10} className="text-slate-500" /> :
+                                     <Activity size={10} className="text-slate-500" />}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-[9px] text-slate-500 leading-none mb-0.5 capitalize truncate">{key}</div>
+                                    <div className="text-[11px] text-slate-200 font-bold truncate" title={String(value)}>{String(value)}</div>
+                                  </div>
                                 </div>
-                                <div className="min-w-0">
-                                  <div className="text-[10px] text-slate-500 leading-none mb-1 capitalize">{key}</div>
-                                  <div className="text-xs text-slate-200 font-bold truncate">{String(value)}</div>
-                                </div>
-                              </div>
-                            ))
+                              ))}
+                            </div>
                           ) : resource.description ? (
                             <div className="text-xs text-slate-400 line-clamp-2">{resource.description}</div>
                           ) : (
-                            <div className="flex items-center gap-3 opacity-40">
-                              <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
-                                <Activity size={12} className="text-slate-600" />
+                            <div className="flex items-center gap-2 opacity-40">
+                              <div className="w-5 h-5 rounded-full bg-slate-950 flex items-center justify-center border border-slate-800 shrink-0">
+                                <Activity size={10} className="text-slate-600" />
                               </div>
                               <div className="text-[10px] text-slate-600 italic">No attributes defined</div>
                             </div>

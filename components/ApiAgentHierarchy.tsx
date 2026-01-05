@@ -85,9 +85,9 @@ const AgentCard: React.FC<{
       )}
       <div className="flex-1 min-w-0">
         <div className="text-[11px] font-medium text-slate-200 truncate">{agent.name}</div>
-        {/* Show model name */}
-        {agent.model && (
-          <div className="text-[9px] text-slate-500 truncate">{agent.model}</div>
+        {/* Show model name (prefer modelName, fallback to model) */}
+        {(agent.modelName || agent.model) && (
+          <div className="text-[9px] text-slate-500 truncate">{agent.modelName || agent.model}</div>
         )}
         {/* Show warnings/critical badges if present */}
         {((agent.warnings && agent.warnings > 0) || (agent.critical && agent.critical > 0)) && (
@@ -118,28 +118,31 @@ const NodeTeam: React.FC<{
   onAgentClick?: (id: number) => void;
 }> = ({ nodeTeam, isLast, isActive, activeAgentId, activeAgentName, onAgentClick }) => {
   // Check if team supervisor is active
-  // Priority: boundId match > name match > pattern match
+  // Priority: boundId match (only use name match for legacy agents without boundId)
   const isTeamSupervisorActive = () => {
     if (!nodeTeam.supervisor) return false;
     // Primary: Match by boundId (from SSE agentId)
     if (activeAgentId != null && nodeTeam.supervisor.boundId === activeAgentId) return true;
-    // Fallback: Match by name
-    if (activeAgentName && nodeTeam.supervisor.name === activeAgentName) return true;
-    // Fallback pattern: "[nodeName] Supervisor" matches node name
-    if (activeAgentName?.endsWith(' Supervisor')) {
-      const teamName = activeAgentName.replace(' Supervisor', '');
-      if (teamName === nodeTeam.nodeName) return true;
+    // Fallback for legacy agents without boundId
+    if (nodeTeam.supervisor.boundId == null) {
+      // Match by name
+      if (activeAgentName && nodeTeam.supervisor.name === activeAgentName) return true;
+      // Pattern: "[nodeName] Supervisor" matches node name
+      if (activeAgentName?.endsWith(' Supervisor')) {
+        const teamName = activeAgentName.replace(' Supervisor', '');
+        if (teamName === nodeTeam.nodeName) return true;
+      }
     }
     return false;
   };
 
   // Check if a worker agent is active
-  // Priority: boundId match > name match
+  // Priority: boundId match (only use name match for legacy agents without boundId)
   const isWorkerActive = (agent: HierarchicalAgentDTO) => {
     // Primary: Match by boundId (from SSE agentId)
     if (activeAgentId != null && agent.boundId === activeAgentId) return true;
-    // Fallback: Match by name
-    if (activeAgentName && agent.name === activeAgentName) return true;
+    // Fallback: Match by name ONLY if agent doesn't have boundId (legacy data)
+    if (agent.boundId == null && activeAgentName && agent.name === activeAgentName) return true;
     return false;
   };
   return (
@@ -220,15 +223,18 @@ const ApiAgentHierarchy: React.FC<ApiAgentHierarchyProps> = ({
   onAgentClick,
 }) => {
   // Check if global supervisor is active
-  // Priority: boundId match > name match > pattern match
+  // Priority: boundId match (only use name match for legacy agents without boundId)
   const isGlobalSupervisorActive = () => {
     if (!team?.globalSupervisor) return false;
     // Primary: Match by boundId (from SSE agentId)
     if (activeAgentId != null && team.globalSupervisor.boundId === activeAgentId) return true;
-    // Fallback: Match by name
-    if (activeAgentName && team.globalSupervisor.name === activeAgentName) return true;
-    // Fallback pattern: "Global Supervisor" name from log messages
-    if (activeAgentName === 'Global Supervisor') return true;
+    // Fallback for legacy agents without boundId
+    if (team.globalSupervisor.boundId == null) {
+      // Match by name
+      if (activeAgentName && team.globalSupervisor.name === activeAgentName) return true;
+      // Pattern: "Global Supervisor" name from log messages
+      if (activeAgentName === 'Global Supervisor') return true;
+    }
     return false;
   };
   // Loading state
@@ -287,8 +293,10 @@ const ApiAgentHierarchy: React.FC<ApiAgentHierarchyProps> = ({
             <div className="text-[11px] font-bold text-indigo-100 truncate">
               {team.globalSupervisor.name}
             </div>
-            {team.globalSupervisor.model && (
-              <div className="text-[9px] text-indigo-300/60 truncate">{team.globalSupervisor.model}</div>
+            {(team.globalSupervisor.modelName || team.globalSupervisor.model) && (
+              <div className="text-[9px] text-indigo-300/60 truncate">
+                {team.globalSupervisor.modelName || team.globalSupervisor.model}
+              </div>
             )}
           </div>
         </div>

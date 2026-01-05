@@ -1,9 +1,11 @@
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as d3 from 'd3';
+import ReactDOMServer from 'react-dom/server';
 import { Topology, TopologyLink } from '../types';
 import { useTopology } from '../services/hooks/useTopology';
 import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { getResourceTypeIcon } from '../services/api/resources';
 
 // Link type options
 const LINK_TYPES = [
@@ -49,6 +51,74 @@ const LAYER_CONFIG: Record<BackendLayer, { index: number; label: string; color: 
 };
 
 const LAYER_ORDER: BackendLayer[] = ['BUSINESS_SCENARIO', 'BUSINESS_FLOW', 'BUSINESS_APPLICATION', 'MIDDLEWARE', 'INFRASTRUCTURE'];
+
+/**
+ * Calculate node width based on label length
+ * Returns width that fits the text with padding
+ */
+function calculateNodeWidth(label: string): number {
+  const minWidth = 100;
+  const maxWidth = 200;
+  const charWidth = 7.5; // Approximate width per character at 12px font
+  const padding = 40; // Padding for icon and margins
+
+  const textWidth = (label?.length || 0) * charWidth;
+  const calculatedWidth = textWidth + padding;
+
+  return Math.max(minWidth, Math.min(maxWidth, calculatedWidth));
+}
+
+/**
+ * Get icon color based on node type and name
+ * Different resource types have distinct colors for visual differentiation
+ */
+function getNodeIconColor(nodeType: string, nodeName: string): string {
+  const type = nodeType?.toLowerCase() || '';
+  const name = nodeName?.toLowerCase() || '';
+
+  // Brand-specific colors (check name first for more specific matching)
+  if (name.includes('mysql')) return '#00758f';      // MySQL blue
+  if (name.includes('postgres') || name.includes('pgsql')) return '#336791';  // PostgreSQL blue
+  if (name.includes('redis')) return '#dc382d';       // Redis red
+  if (name.includes('mongo')) return '#47a248';       // MongoDB green
+  if (name.includes('kafka')) return '#231f20';       // Kafka black (will show as light)
+  if (name.includes('rabbit') || name.includes('mq')) return '#ff6600';  // RabbitMQ orange
+  if (name.includes('elastic') || name.includes('es')) return '#00bfb3'; // Elasticsearch teal
+  if (name.includes('nginx')) return '#009639';       // Nginx green
+  if (name.includes('docker') || name.includes('container')) return '#2496ed'; // Docker blue
+  if (name.includes('k8s') || name.includes('kubernetes')) return '#326ce5';   // K8s blue
+  if (name.includes('gateway') || name.includes('kong') || name.includes('envoy')) return '#10b981'; // Gateway green
+  if (name.includes('auth')) return '#f59e0b';        // Auth amber
+
+  // Type-based colors
+  if (type.includes('database') || type === 'db') return '#f59e0b';     // Database amber
+  if (type.includes('application') || type === 'app') return '#06b6d4'; // Application cyan
+  if (type.includes('service') || type === 'server') return '#3b82f6';  // Service blue
+  if (type.includes('gateway')) return '#10b981';     // Gateway green
+  if (type.includes('cache')) return '#8b5cf6';       // Cache purple
+  if (type.includes('queue') || type.includes('mq')) return '#ec4899';  // Queue pink
+  if (type.includes('storage')) return '#f97316';     // Storage orange
+  if (type.includes('network') || type.includes('lb')) return '#14b8a6'; // Network teal
+  if (type.includes('infrastructure')) return '#64748b'; // Infrastructure slate
+
+  // Default color
+  return '#94a3b8'; // slate-400
+}
+
+/**
+ * Render node icon to SVG string for embedding in D3
+ * Uses the same icon logic as ResourceManagement for consistency
+ */
+function renderNodeIconSvg(nodeType: string, nodeName: string, overrideColor?: string): string {
+  const IconComponent = getResourceTypeIcon(nodeType, nodeName);
+  const color = overrideColor || getNodeIconColor(nodeType, nodeName);
+  const iconElement = React.createElement(IconComponent, {
+    size: 14,
+    color: color,
+    strokeWidth: 2,
+  });
+  return ReactDOMServer.renderToStaticMarkup(iconElement);
+}
 
 interface LinkingState {
   sourceNodeId: string;
@@ -160,6 +230,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
   // Link edit modal state
   const [selectedLink, setSelectedLink] = useState<EditableLinkData | null>(null);
   const [showLinkEditModal, setShowLinkEditModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const onNodeClickRef = useRef(onNodeClick);
   const onNodeDoubleClickRef = useRef(onNodeDoubleClick);
@@ -297,17 +368,25 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
 
   // Handle link deletion
   const handleDeleteLink = useCallback(() => {
-    if (selectedLink && onDeleteLinkRef.current) {
+    if (selectedLink && onDeleteLinkRef.current && deleteConfirmText.toLowerCase() === 'delete') {
       onDeleteLinkRef.current({
         source: selectedLink.source,
         target: selectedLink.target,
         type: selectedLink.type,
         relationshipId: selectedLink.relationshipId,
       });
+      setShowLinkEditModal(false);
+      setSelectedLink(null);
+      setDeleteConfirmText('');
     }
+  }, [selectedLink, deleteConfirmText]);
+
+  // Close link edit modal
+  const closeLinkEditModal = useCallback(() => {
     setShowLinkEditModal(false);
     setSelectedLink(null);
-  }, [selectedLink]);
+    setDeleteConfirmText('');
+  }, []);
 
   // Ref for link double-click handler (used in D3 effect)
   const handleLinkDoubleClickRef = useRef(handleLinkDoubleClick);
@@ -861,20 +940,25 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       saveLayoutCache(layoutCacheKey.current, nodePositions, layerHeights);
     };
 
+    // 计算每个节点的宽度并存储
+    treeNodes.forEach((d: any) => {
+      d.data.nodeWidth = calculateNodeWidth(d.data.label);
+    });
+
     // 计算实际边界
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let maxNodeWidth = 0;
     treeNodes.forEach((d: any) => {
       minX = Math.min(minX, d.x);
       maxX = Math.max(maxX, d.x);
       minY = Math.min(minY, d.y);
       maxY = Math.max(maxY, d.y);
+      maxNodeWidth = Math.max(maxNodeWidth, d.data.nodeWidth || 140);
     });
 
-    const nodeRectWidth = 140;
     const nodeRectHeight = 50;
-    const rectWidth = 140;
     const rectHeight = 50;
-    const contentWidth = maxX - minX + nodeRectWidth;
+    const contentWidth = maxX - minX + maxNodeWidth;
     const contentHeight = maxY - minY + nodeRectHeight;
 
     // 计算缩放以适应视口（留出边距）
@@ -948,13 +1032,14 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
 
     // Helper function to constrain node positions within layer boundaries
     const constrainNodePositions = () => {
-      const halfNodeWidth = rectWidth / 2;
       const halfNodeHeight = rectHeight / 2;
       const padding = 10;
 
       treeNodes.forEach((d: any) => {
         const nodeLayer = (d.data.layer || 'BUSINESS_APPLICATION') as BackendLayer;
         const layerPos = layerYPositions.get(nodeLayer);
+        const nodeWidth = d.data.nodeWidth || 140;
+        const halfNodeWidth = nodeWidth / 2;
 
         // Constrain X within layer bounds
         const xMinBound = layerStartX + halfNodeWidth + padding;
@@ -1319,29 +1404,36 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       .data(treeLinks)
       .join("g");
 
-    // 使用曲线路径 - 从底部端口到顶部端口
-    const linkPath = linkGroup.append("path")
-      .attr("id", (d, i) => `link-${i}`)
+    // 透明的宽点击区域（放在可见路径下方）
+    linkGroup.append("path")
+      .attr("class", "link-hit-area")
       .attr("fill", "none")
-      .attr("class", "base-link")
-      .attr("stroke-width", 2)
-      .attr("stroke", "#0891b2")
-      .attr("opacity", 0.7)
+      .attr("stroke", "transparent")
+      .attr("stroke-width", 16)
       .attr("cursor", "pointer")
       .attr("d", (d: any) => {
-        // 从源节点底部端口到目标节点顶部端口
         const sx = d.source.x;
-        const sy = d.source.y + rectHeight / 2; // 底部端口
+        const sy = d.source.y + rectHeight / 2;
         const tx = d.target.x;
-        const ty = d.target.y - rectHeight / 2; // 顶部端口
+        const ty = d.target.y - rectHeight / 2;
         const my = (sy + ty) / 2;
         return `M${sx},${sy} C${sx},${my} ${tx},${my} ${tx},${ty}`;
+      })
+      .on("mouseenter", function() {
+        // 高亮对应的可见路径
+        d3.select(this.parentNode as Element).select(".base-link")
+          .attr("stroke-width", 3)
+          .attr("opacity", 1);
+      })
+      .on("mouseleave", function() {
+        d3.select(this.parentNode as Element).select(".base-link")
+          .attr("stroke-width", 2)
+          .attr("opacity", 0.7);
       })
       .on("dblclick", (e: any, d: any) => {
         e.stopPropagation();
         const sourceId = d.source.data.id;
         const targetId = d.target.data.id;
-        // Find the original link data to get the relationship ID
         const originalLink = data.links.find(l => {
           const s = typeof l.source === 'object' ? (l.source as any).id : l.source;
           const t = typeof l.target === 'object' ? (l.target as any).id : l.target;
@@ -1353,6 +1445,26 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
           type: originalLink?.type || 'call',
           relationshipId: originalLink?.relationshipId,
         });
+      });
+
+    // 使用曲线路径 - 从底部端口到顶部端口（可见路径）
+    linkGroup.append("path")
+      .attr("id", (d, i) => `link-${i}`)
+      .attr("fill", "none")
+      .attr("class", "base-link")
+      .attr("stroke-width", 2)
+      .attr("stroke", "#0891b2")
+      .attr("opacity", 0.7)
+      .style("pointer-events", "none")
+      .style("transition", "stroke-width 0.15s, opacity 0.15s")
+      .attr("d", (d: any) => {
+        // 从源节点底部端口到目标节点顶部端口
+        const sx = d.source.x;
+        const sy = d.source.y + rectHeight / 2; // 底部端口
+        const tx = d.target.x;
+        const ty = d.target.y - rectHeight / 2; // 顶部端口
+        const my = (sy + ty) / 2;
+        return `M${sx},${sy} C${sx},${my} ${tx},${my} ${tx},${ty}`;
       });
 
     // 添加多个流动粒子
@@ -1422,10 +1534,65 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
     });
 
     // 绘制额外链接（非树形 call 链接 + dependency/deployment/inferred）
-    const extraLinkGroup = g.append("g")
-      .selectAll("path")
-      .data(extraLinks.filter(l => nodePositions.has(l.source) && nodePositions.has(l.target)))
-      .join("path")
+    const filteredExtraLinks = extraLinks.filter(l => nodePositions.has(l.source) && nodePositions.has(l.target));
+    const extraLinkContainer = g.append("g");
+
+    const extraLinkGroup = extraLinkContainer
+      .selectAll("g")
+      .data(filteredExtraLinks)
+      .join("g");
+
+    // 计算额外链接路径的辅助函数
+    const getExtraLinkPath = (d: any) => {
+      const source = nodePositions.get(d.source)!;
+      const target = nodePositions.get(d.target)!;
+      const sourceIsAbove = source.y < target.y;
+      const sx = source.x;
+      const sy = sourceIsAbove ? source.y + rectHeight / 2 : source.y - rectHeight / 2;
+      const tx = target.x;
+      const ty = sourceIsAbove ? target.y - rectHeight / 2 : target.y + rectHeight / 2;
+      const mx = (sx + tx) / 2;
+      const my = (sy + ty) / 2;
+      const dx = tx - sx;
+      const dy = ty - sy;
+      const dr = Math.sqrt(dx * dx + dy * dy) * 0.3;
+      return `M${sx},${sy} Q${mx + dr * 0.3},${my} ${tx},${ty}`;
+    };
+
+    // 透明的宽点击区域
+    extraLinkGroup.append("path")
+      .attr("class", "extra-link-hit-area")
+      .attr("fill", "none")
+      .attr("stroke", "transparent")
+      .attr("stroke-width", 16)
+      .attr("cursor", "pointer")
+      .attr("d", getExtraLinkPath)
+      .on("mouseenter", function() {
+        d3.select(this.parentNode as Element).select(".extra-link-path")
+          .attr("stroke-width", 3)
+          .attr("opacity", 1);
+      })
+      .on("mouseleave", function(e, d: any) {
+        const baseWidth = d.type === 'call' ? 2 : 1.5;
+        const baseOpacity = d.type === 'call' ? 0.7 : d.type === 'deployment' ? 0.3 : 0.5;
+        d3.select(this.parentNode as Element).select(".extra-link-path")
+          .attr("stroke-width", baseWidth)
+          .attr("opacity", baseOpacity);
+      })
+      .on("dblclick", (e: any, d: any) => {
+        e.stopPropagation();
+        handleLinkDoubleClickRef.current({
+          source: d.source,
+          target: d.target,
+          type: d.type || 'call',
+          relationshipId: d.relationshipId,
+        });
+      });
+
+    // 添加可见路径
+    extraLinkGroup.append("path")
+      .attr("id", (d, i) => `extra-link-${i}`)
+      .attr("class", "extra-link-path")
       .attr("fill", "none")
       .attr("stroke-width", d => d.type === 'call' ? 2 : 1.5)
       .attr("stroke", d => {
@@ -1440,46 +1607,63 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         if (d.type === 'deployment') return 0.3;
         return 0.5;
       })
-      .attr("cursor", "pointer")
-      .attr("d", d => {
-        const source = nodePositions.get(d.source)!;
-        const target = nodePositions.get(d.target)!;
-        // 根据相对位置决定从哪个端口连接
-        const sourceIsAbove = source.y < target.y;
-        const sx = source.x;
-        const sy = sourceIsAbove ? source.y + rectHeight / 2 : source.y - rectHeight / 2;
-        const tx = target.x;
-        const ty = sourceIsAbove ? target.y - rectHeight / 2 : target.y + rectHeight / 2;
-        const mx = (sx + tx) / 2;
-        const my = (sy + ty) / 2;
-        // 使用弧线区分额外链接
-        const dx = tx - sx;
-        const dy = ty - sy;
-        const dr = Math.sqrt(dx * dx + dy * dy) * 0.3;
-        return `M${sx},${sy} Q${mx + dr * 0.3},${my} ${tx},${ty}`;
-      })
-      .on("dblclick", (e: any, d: any) => {
-        e.stopPropagation();
-        handleLinkDoubleClickRef.current({
-          source: d.source,
-          target: d.target,
-          type: d.type || 'call',
-          relationshipId: d.relationshipId,
-        });
+      .style("pointer-events", "none")
+      .style("transition", "stroke-width 0.15s, opacity 0.15s")
+      .attr("d", getExtraLinkPath);
+
+    // 为额外的 call 类型链接添加流量动画
+    extraLinkGroup.each(function(d: any) {
+      if (d.type !== 'call') return;
+
+      const g = d3.select(this);
+      // 选择有ID的可见路径（不是点击区域路径）
+      const pathId = g.select("path.extra-link-path").attr("id");
+
+      // 添加多个流动粒子
+      [0, 0.33, 0.66].forEach((offset) => {
+        const circle = g.append("circle")
+          .attr("r", 3)
+          .attr("fill", "#22d3ee")
+          .attr("opacity", 0.8);
+
+        circle.append("animateMotion")
+          .attr("dur", "2s")
+          .attr("repeatCount", "indefinite")
+          .attr("begin", `${offset * 2}s`)
+          .append("mpath")
+          .attr("href", `#${pathId}`);
       });
+
+      // 添加箭头指示器
+      const polygon = g.append("polygon")
+        .attr("points", "-4,-3 4,0 -4,3")
+        .attr("fill", "#22d3ee")
+        .attr("opacity", 0.9);
+
+      polygon.append("animateMotion")
+        .attr("dur", "2s")
+        .attr("repeatCount", "indefinite")
+        .attr("rotate", "auto")
+        .append("mpath")
+        .attr("href", `#${pathId}`);
+    });
 
     // 用于更新连接线的函数
     const updateLinks = () => {
       // 更新树形连接线 - 从底部端口到顶部端口
-      linkGroup.select("path.base-link")
-        .attr("d", (d: any) => {
-          const sx = d.source.x;
-          const sy = d.source.y + rectHeight / 2; // 底部端口
-          const tx = d.target.x;
-          const ty = d.target.y - rectHeight / 2; // 顶部端口
-          const my = (sy + ty) / 2;
-          return `M${sx},${sy} C${sx},${my} ${tx},${my} ${tx},${ty}`;
-        });
+      const getLinkPath = (d: any) => {
+        const sx = d.source.x;
+        const sy = d.source.y + rectHeight / 2; // 底部端口
+        const tx = d.target.x;
+        const ty = d.target.y - rectHeight / 2; // 顶部端口
+        const my = (sy + ty) / 2;
+        return `M${sx},${sy} C${sx},${my} ${tx},${my} ${tx},${ty}`;
+      };
+
+      // 更新可见路径
+      linkGroup.select("path.base-link").attr("d", getLinkPath);
+      // 更新点击区域路径
+      linkGroup.select("path.link-hit-area").attr("d", getLinkPath);
 
       // 更新节点位置映射
       treeNodes.forEach((d: any) => {
@@ -1487,24 +1671,27 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       });
 
       // 更新非树形连接线 - 从端口到端口
-      extraLinkGroup
-        .attr("d", (d: any) => {
-          const source = nodePositions.get(d.source);
-          const target = nodePositions.get(d.target);
-          if (!source || !target) return "";
-          // 根据相对位置决定从哪个端口连接
-          const sourceIsAbove = source.y < target.y;
-          const sx = source.x;
-          const sy = sourceIsAbove ? source.y + rectHeight / 2 : source.y - rectHeight / 2;
-          const tx = target.x;
-          const ty = sourceIsAbove ? target.y - rectHeight / 2 : target.y + rectHeight / 2;
-          const mx = (sx + tx) / 2;
-          const my = (sy + ty) / 2;
-          const dx = tx - sx;
-          const dy = ty - sy;
-          const dr = Math.sqrt(dx * dx + dy * dy) * 0.3;
-          return `M${sx},${sy} Q${mx + dr * 0.3},${my} ${tx},${ty}`;
-        });
+      const getExtraPath = (d: any) => {
+        const source = nodePositions.get(d.source);
+        const target = nodePositions.get(d.target);
+        if (!source || !target) return "";
+        const sourceIsAbove = source.y < target.y;
+        const sx = source.x;
+        const sy = sourceIsAbove ? source.y + rectHeight / 2 : source.y - rectHeight / 2;
+        const tx = target.x;
+        const ty = sourceIsAbove ? target.y - rectHeight / 2 : target.y + rectHeight / 2;
+        const mx = (sx + tx) / 2;
+        const my = (sy + ty) / 2;
+        const dx = tx - sx;
+        const dy = ty - sy;
+        const dr = Math.sqrt(dx * dx + dy * dy) * 0.3;
+        return `M${sx},${sy} Q${mx + dr * 0.3},${my} ${tx},${ty}`;
+      };
+
+      // 更新可见路径
+      extraLinkGroup.select("path.extra-link-path").attr("d", getExtraPath);
+      // 更新点击区域路径
+      extraLinkGroup.select("path.extra-link-hit-area").attr("d", getExtraPath);
     };
 
     // 拖拽行为 - 限制在所属 Layer 内（X和Y轴都限制）
@@ -1521,7 +1708,8 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         const nodeLayer = (d.data.layer || 'BUSINESS_APPLICATION') as BackendLayer;
         const layerPos = layerYPositions.get(nodeLayer);
 
-        const halfNodeWidth = rectWidth / 2;
+        const nodeWidth = d.data.nodeWidth || 140;
+        const halfNodeWidth = nodeWidth / 2;
         const halfNodeHeight = rectHeight / 2;
         const padding = 10;
 
@@ -1565,21 +1753,22 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
 
     nodeSelectionRef.current = nodeGroup as any;
 
-    // 添加阴影底层矩形（立体感）
+    // 添加阴影底层矩形（立体感）- 使用动态宽度
     nodeGroup.append("rect")
-      .attr("width", rectWidth)
+      .attr("width", (d: any) => d.data.nodeWidth || 140)
       .attr("height", rectHeight)
-      .attr("x", -rectWidth / 2 + 2)
+      .attr("x", (d: any) => -(d.data.nodeWidth || 140) / 2 + 2)
       .attr("y", -rectHeight / 2 + 3)
       .attr("rx", 8)
       .attr("ry", 8)
       .attr("fill", "rgba(0, 0, 0, 0.4)")
       .attr("class", "node-shadow");
 
+    // 主矩形 - 使用动态宽度
     nodeGroup.append("rect")
-      .attr("width", rectWidth)
+      .attr("width", (d: any) => d.data.nodeWidth || 140)
       .attr("height", rectHeight)
-      .attr("x", -rectWidth / 2)
+      .attr("x", (d: any) => -(d.data.nodeWidth || 140) / 2)
       .attr("y", -rectHeight / 2)
       .attr("rx", 8)
       .attr("ry", 8)
@@ -1619,11 +1808,11 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       })
       .attr("class", "node-rect transition-all duration-300");
 
-    // 添加顶部高光（立体感）
+    // 添加顶部高光（立体感）- 使用动态宽度
     nodeGroup.append("rect")
-      .attr("width", rectWidth - 8)
+      .attr("width", (d: any) => (d.data.nodeWidth || 140) - 8)
       .attr("height", 1)
-      .attr("x", -rectWidth / 2 + 4)
+      .attr("x", (d: any) => -(d.data.nodeWidth || 140) / 2 + 4)
       .attr("y", -rectHeight / 2 + 2)
       .attr("rx", 1)
       .attr("fill", (d: any) => {
@@ -1631,9 +1820,41 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         return "rgba(255, 255, 255, 0.1)";
       });
 
+    // 添加节点类型图标（左上角外侧，徽章效果）
+    const iconContainerSize = 24;
+    nodeGroup.append("foreignObject")
+      .attr("x", (d: any) => -(d.data.nodeWidth || 140) / 2 - iconContainerSize / 2 + 6)
+      .attr("y", -rectHeight / 2 - iconContainerSize / 2 + 6)
+      .attr("width", iconContainerSize)
+      .attr("height", iconContainerSize)
+      .style("pointer-events", "none")
+      .style("overflow", "visible")
+      .append("xhtml:div")
+      .style("width", "100%")
+      .style("height", "100%")
+      .style("display", "flex")
+      .style("align-items", "center")
+      .style("justify-content", "center")
+      .style("background", "#0f172a")
+      .style("border-radius", "6px")
+      .style("border", (d: any) => {
+        if (d.data.isShadow) return "1px solid #7c3aed";
+        if (d.data.isOrphan) return "1px solid #475569";
+        return "1px solid #334155";
+      })
+      .style("box-shadow", "0 2px 4px rgba(0,0,0,0.3)")
+      .html((d: any) => {
+        // Shadow/orphan nodes use muted colors, otherwise use type-specific colors
+        const overrideColor = d.data.isShadow ? "#a78bfa" : d.data.isOrphan ? "#64748b" : undefined;
+        return renderNodeIconSvg(d.data.type || '', d.data.label || '', overrideColor);
+      });
+
+    // 文字居中（图标移到外侧后不需要偏移）
+    const textOffsetX = 0;
+
     nodeGroup.append("text")
       .text((d: any) => d.data.label)
-      .attr("x", 0)
+      .attr("x", textOffsetX)
       .attr("y", -6)
       .attr("text-anchor", "middle")
       .attr("fill", (d: any) => {
@@ -1651,7 +1872,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         if (d.data.isOrphan) return "ISOLATED"; // 真正孤立（无任何链接）
         return "ONLINE";
       })
-      .attr("x", 0)
+      .attr("x", textOffsetX)
       .attr("y", 13)
       .attr("text-anchor", "middle")
       .attr("font-size", "8px")
@@ -1663,7 +1884,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       })
       .style("pointer-events", "none");
 
-    // 添加连接点（上边中点和下边中点）
+    // 添加连接点（上边中点和下边中点）- 默认隐藏，悬浮显示
     const portRadius = 8;
 
     // 上边连接点
@@ -1676,6 +1897,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       .attr("stroke", "#64748b")
       .attr("stroke-width", 2)
       .attr("cursor", "crosshair")
+      .style("opacity", 0)
       .style("transition", "all 0.15s ease-out")
       .on("mouseenter", function() {
         d3.select(this)
@@ -1708,6 +1930,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
       .attr("stroke", "#64748b")
       .attr("stroke-width", 2)
       .attr("cursor", "crosshair")
+      .style("opacity", 0)
       .style("transition", "all 0.15s ease-out")
       .on("mouseenter", function() {
         d3.select(this)
@@ -1728,6 +1951,15 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
         e.preventDefault();
         console.log('Bottom port clicked:', d.data.id);
         handlePortClickRef.current(d.data.id, 'bottom', e);
+      });
+
+    // 节点悬浮时显示连接点
+    nodeGroup
+      .on("mouseenter", function() {
+        d3.select(this).selectAll(".port").style("opacity", 1);
+      })
+      .on("mouseleave", function() {
+        d3.select(this).selectAll(".port").style("opacity", 0);
       });
 
   }, [data]);
@@ -1873,7 +2105,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
 
       {/* Link edit modal (double-click on link) */}
       {showLinkEditModal && selectedLink && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowLinkEditModal(false); setSelectedLink(null); }}>
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={closeLinkEditModal}>
           <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-2xl w-80" onClick={e => e.stopPropagation()}>
             <h3 className="text-white font-bold text-lg mb-2">Edit Link</h3>
             <p className="text-slate-400 text-sm mb-4">
@@ -1906,10 +2138,28 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
                 </button>
               ))}
             </div>
-            <div className="border-t border-slate-700 pt-4 flex flex-col gap-2">
+            <div className="border-t border-slate-700 pt-4 flex flex-col gap-3">
+              {/* Delete confirmation input */}
+              <div>
+                <label className="text-slate-400 text-xs block mb-1.5">
+                  Type <span className="text-red-400 font-mono">delete</span> to confirm deletion:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="delete"
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30"
+                />
+              </div>
               <button
                 onClick={handleDeleteLink}
-                className="w-full py-2 px-4 bg-red-600/20 hover:bg-red-600/30 border border-red-600/50 rounded-lg text-red-400 hover:text-red-300 text-sm font-medium transition-all flex items-center justify-center gap-2"
+                disabled={deleteConfirmText.toLowerCase() !== 'delete'}
+                className={`w-full py-2 px-4 border rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                  deleteConfirmText.toLowerCase() === 'delete'
+                    ? 'bg-red-600/20 hover:bg-red-600/30 border-red-600/50 text-red-400 hover:text-red-300 cursor-pointer'
+                    : 'bg-slate-800/50 border-slate-700/50 text-slate-600 cursor-not-allowed'
+                }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1917,7 +2167,7 @@ const TopologyGraph: React.FC<TopologyGraphProps> = ({
                 Delete Link
               </button>
               <button
-                onClick={() => { setShowLinkEditModal(false); setSelectedLink(null); }}
+                onClick={closeLinkEditModal}
                 className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
               >
                 Cancel

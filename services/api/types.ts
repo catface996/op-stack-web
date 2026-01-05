@@ -485,7 +485,8 @@ export interface RelationshipUpdateRequest {
  * Delete relationship request
  */
 export interface RelationshipDeleteRequest {
-  id: number;
+  relationshipId: number;
+  operatorId?: number;
 }
 
 /**
@@ -1787,8 +1788,12 @@ export interface HierarchicalAgentDTO {
   promptTemplateId?: number;
   /** Prompt template name */
   promptTemplateName?: string;
-  /** AI model identifier */
+  /** AI model identifier (internal) */
   model?: string;
+  /** AI model friendly name (for display) */
+  modelName?: string;
+  /** Provider model identifier */
+  providerModelId?: string;
   /** Temperature parameter (0.0-2.0) */
   temperature?: number;
   /** Top P parameter (0.0-1.0) */

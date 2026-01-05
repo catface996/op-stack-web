@@ -73,6 +73,8 @@ export interface HierarchyAgentDTO {
   hierarchyLevel: HierarchyLevel;
   specialty?: string;
   model?: string;
+  modelName?: string;        // Model friendly name (for display)
+  providerModelId?: string;  // Provider model identifier
 }
 
 export interface HierarchyTeamDTO {
